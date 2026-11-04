@@ -233,7 +233,7 @@ private fun EventLine(
         Column(Modifier.weight(1f)) {
             Text(event.name, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, lineHeight = 19.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(
-                "${event.date} · ${event.venue}",
+                listOf(event.date, event.venue).filter { it.isNotBlank() }.joinToString(" · "),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 13.sp,
                 lineHeight = 17.sp,

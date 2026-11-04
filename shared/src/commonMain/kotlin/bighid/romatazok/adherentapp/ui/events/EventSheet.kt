@@ -42,7 +42,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import bighid.romatazok.adherentapp.ui.CalendarEntry
+import bighid.romatazok.adherentapp.ui.receipt.LocalReceipts
 import bighid.romatazok.adherentapp.ui.receipt.ReceiptContent
+import bighid.romatazok.adherentapp.ui.receipt.ReceiptView
+import androidx.compose.foundation.Image
+import androidx.compose.runtime.produceState
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import kotlinx.coroutines.launch
 import bighid.romatazok.adherentapp.ui.rememberAddToCalendar
 import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
@@ -59,13 +67,14 @@ fun EventSheet(
     onDismiss: () -> Unit,
     onRenew: () -> Unit,
 ) {
-    var showReceipt by remember { mutableStateOf(false) }
+    var receipt by remember { mutableStateOf<ReceiptView?>(null) }
+    val loadReceipt = LocalReceipts.current
+    val scope = rememberCoroutineScope()
     val uri = LocalUriHandler.current
     val addToCalendar = rememberAddToCalendar()
     ModalBottomSheet(onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), containerColor = MaterialTheme.colorScheme.surface) {
-        val ticket = event.ticket
-        if (showReceipt && ticket != null) {
-            ReceiptContent(ticket, onDownload = {})
+        receipt?.let {
+            ReceiptContent(it, onDownload = {})
             return@ModalBottomSheet
         }
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(start = 20.dp, end = 20.dp, bottom = 28.dp)) {
@@ -91,7 +100,7 @@ fun EventSheet(
                 }
             }
             Spacer(Modifier.height(16.dp))
-            Mine(event, memberActive, onReceipt = { showReceipt = true }, onRenew = onRenew)
+            Mine(event, memberActive, onReceipt = { id -> scope.launch { receipt = loadReceipt(id) } }, onRenew = onRenew)
             event.description?.let {
                 Spacer(Modifier.height(18.dp))
                 Text(it, fontSize = 15.sp, lineHeight = 22.sp)
@@ -110,7 +119,7 @@ fun EventSheet(
 private fun Mine(
     event: UpcomingEvent,
     memberActive: Boolean,
-    onReceipt: () -> Unit,
+    onReceipt: (String) -> Unit,
     onRenew: () -> Unit,
 ) {
     val ticket = event.ticket
@@ -128,13 +137,12 @@ private fun Mine(
                 Text("À l'entrée, montre ta carte.", color = NAVY, fontSize = 14.sp)
                 Spacer(Modifier.height(12.dp))
                 Row(
-                    Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(NAVY_LIGHT).clickable(onClick = onReceipt).padding(horizontal = 16.dp, vertical = 13.dp),
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(NAVY_LIGHT).clickable { onReceipt(ticket) }.padding(horizontal = 16.dp, vertical = 13.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Icon(painterResource(Res.drawable.ic_payments), null, Modifier.size(18.dp), tint = GOLD)
                     Spacer(Modifier.width(10.dp))
                     Text("Voir le reçu", Modifier.weight(1f), color = Color.White, fontWeight = FontWeight.SemiBold)
-                    Text(ticket.amount, color = Color.White, fontWeight = FontWeight.SemiBold)
                 }
             }
             event.membersOnly && !memberActive -> {
@@ -199,14 +207,21 @@ internal fun Tag(
     )
 }
 
-/** The poster of the event, once plugged to the server; until then the colours of the card. */
+/** The poster of the event, from the server; the colours of the card while it comes, or without one. */
 @Composable
 internal fun Poster(
     event: UpcomingEvent,
     modifier: Modifier,
 ) {
+    val load = LocalPosters.current
+    val image by produceState<ImageBitmap?>(null, event.id, event.hasPoster) { value = if (event.hasPoster) load(event.id) else null }
     Box(modifier.background(androidx.compose.ui.graphics.Brush.linearGradient(listOf(NAVY_DARK, NAVY_LIGHT, ORANGE))), contentAlignment = Alignment.Center) {
-        Icon(painterResource(Res.drawable.ic_calendar), null, Modifier.size(28.dp), tint = Color.White.copy(alpha = 0.85f))
+        val shown = image
+        if (shown != null) {
+            Image(shown, event.name, Modifier.matchParentSize(), contentScale = ContentScale.Crop)
+        } else {
+            Icon(painterResource(Res.drawable.ic_calendar), null, Modifier.size(28.dp), tint = Color.White.copy(alpha = 0.85f))
+        }
     }
 }
 

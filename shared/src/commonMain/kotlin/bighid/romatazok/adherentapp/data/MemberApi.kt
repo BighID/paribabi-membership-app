@@ -8,6 +8,7 @@ import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.request.bearerAuth
 import io.ktor.client.request.get
 import io.ktor.client.request.post
+import io.ktor.client.request.put
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsText
@@ -74,6 +75,111 @@ data class PendingRequest(
     val id: String,
     val label: String? = null,
     val askedAt: String,
+)
+
+@Serializable
+data class ProfileDto(
+    val firstName: String? = null,
+    val fullName: String,
+    val phone: String? = null,
+    val email: String? = null,
+    val jobTitle: String? = null,
+    val company: String? = null,
+    val city: String? = null,
+    val sector: String? = null,
+    val memberNumber: String? = null,
+    /** "2025-10-18". */
+    val memberSince: String? = null,
+    val validUntil: String? = null,
+    val qr: String? = null,
+    /** `ACTIVE` or `EXPIRED`. */
+    val status: String,
+    val seasonName: String? = null,
+)
+
+@Serializable
+data class ActivityDto(
+    val id: String,
+    /** `PAYMENT`, `MEMBERSHIP`, `REMINDER`, `APPLICATION`. */
+    val kind: String,
+    val title: String,
+    /** ISO instant. */
+    val at: String,
+    val amount: Long? = null,
+    /** `RECEIPT`, `EVENT`, `MEMBERSHIP`. */
+    val target: String,
+    val targetId: String? = null,
+)
+
+@Serializable
+data class SeasonEventDto(
+    val id: String,
+    val name: String,
+    val startsAt: String,
+    val venue: String? = null,
+    /** `PRESENT`, `ABSENT`, `UPCOMING`. */
+    val presence: String,
+    val arrivedAt: String? = null,
+    val ticketPaymentId: String? = null,
+)
+
+@Serializable
+data class SeasonDto(
+    val name: String,
+    /** `ACTIVE`, `EXPIRED`, `ENDED`. */
+    val status: String,
+    val startsOn: String,
+    val joinedOn: String? = null,
+    val endsOn: String,
+    val receiptPaymentId: String? = null,
+    val events: List<SeasonEventDto> = emptyList(),
+)
+
+@Serializable
+data class EventDto(
+    val id: String,
+    val name: String,
+    val startsAt: String,
+    val endsAt: String? = null,
+    val venue: String? = null,
+    /** `PUBLIC`, `MEMBERS_ONLY`, `MIXED`. */
+    val access: String,
+    val free: Boolean,
+    val price: Long? = null,
+    val description: String? = null,
+    val practicalInfo: String? = null,
+    val onlineSalesOpen: Boolean = true,
+    val hasPoster: Boolean = false,
+    val ticketPaymentId: String? = null,
+)
+
+@Serializable
+data class ReceiptDto(
+    val number: String,
+    val title: String,
+    val total: Long,
+    val paidAt: String,
+    val method: String,
+    val refunded: Boolean = false,
+)
+
+@Serializable
+private data class ProfileBody(
+    val jobTitle: String?,
+    val company: String?,
+    val city: String?,
+    val sector: String?,
+)
+
+@Serializable
+private data class EmailBody(
+    val email: String,
+    val pin: String,
+)
+
+@Serializable
+private data class EmailCodeBody(
+    val code: String,
 )
 
 @Serializable
@@ -199,7 +305,7 @@ class MemberApi(
         secret: String,
     ): RequestAnswer = open("/api/member/auth/request", RequestBody(deviceId, secret)).ok<RequestAnswer>().also { answer -> answer.tokens?.let(::keep) }
 
-    suspend fun pendingRequests(): List<PendingRequest> = authorized { token -> client.get("$baseUrl/api/member/device-requests") { bearerAuth(token) } }.ok()
+    suspend fun pendingRequests(): List<PendingRequest> = get("/api/member/device-requests").ok()
 
     suspend fun answerRequest(
         id: String,
@@ -212,6 +318,46 @@ class MemberApi(
     ): Unit = authorizedPost("/api/member/pin", ChangePinBody(current, pin)).ok()
 
     suspend fun verifyPin(pin: String): Unit = authorizedPost("/api/member/pin/verify", VerifyPinBody(pin)).ok()
+
+    suspend fun profile(): ProfileDto = get("/api/member/profile").ok()
+
+    suspend fun activity(): List<ActivityDto> = get("/api/member/activity").ok()
+
+    suspend fun seasons(): List<SeasonDto> = get("/api/member/seasons").ok()
+
+    suspend fun events(): List<EventDto> = get("/api/member/events").ok()
+
+    suspend fun receipt(paymentId: String): ReceiptDto = get("/api/member/receipts/$paymentId").ok()
+
+    suspend fun sectors(): List<String> = get("/api/member/sectors").ok()
+
+    /** The poster's image; null when the event has none, or the network failed. */
+    suspend fun poster(eventId: String): ByteArray? = runCatching {
+        val response = get("/api/member/events/$eventId/poster")
+        if (response.status.isSuccess()) response.body<ByteArray>() else null
+    }.getOrNull()
+
+    suspend fun updateProfile(
+        jobTitle: String?,
+        company: String?,
+        city: String?,
+        sector: String?,
+    ): Unit = authorized { token ->
+        client.put("$baseUrl/api/member/profile") {
+            bearerAuth(token)
+            contentType(ContentType.Application.Json)
+            setBody(ProfileBody(jobTitle, company, city, sector))
+        }
+    }.ok()
+
+    suspend fun requestEmail(
+        email: String,
+        pin: String,
+    ): Unit = authorizedPost("/api/member/email", EmailBody(email, pin)).ok()
+
+    suspend fun confirmEmail(code: String): Unit = authorizedPost("/api/member/email/confirm", EmailCodeBody(code)).ok()
+
+    private suspend fun get(path: String): HttpResponse = authorized { token -> client.get("$baseUrl$path") { bearerAuth(token) } }
 
     /** The server ends the session; the phone stays linked, the PIN alone signs in again. */
     suspend fun logout() {

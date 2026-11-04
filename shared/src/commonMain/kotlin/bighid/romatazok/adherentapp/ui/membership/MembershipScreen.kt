@@ -46,7 +46,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -58,6 +60,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import bighid.romatazok.adherentapp.ui.PageBar
+import bighid.romatazok.adherentapp.ui.receipt.LocalReceipts
 import bighid.romatazok.adherentapp.ui.receipt.ReceiptContent
 import bighid.romatazok.adherentapp.ui.receipt.ReceiptView
 import org.jetbrains.compose.resources.painterResource
@@ -77,8 +80,23 @@ fun MembershipScreen(
     var filter by remember { mutableStateOf<Presence?>(null) }
     var opened by remember { mutableStateOf<SeasonEvent?>(null) }
     var receipt by remember { mutableStateOf<ReceiptView?>(null) }
+    val loadReceipt = LocalReceipts.current
+    val scope = rememberCoroutineScope()
+    val openReceipt: (String) -> Unit = { id -> scope.launch { receipt = loadReceipt(id) } }
     val bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-    val current = state.seasons[index]
+    if (state.seasons.isEmpty()) {
+        Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+            PageBar("Mon adhésion", onBack)
+            Text(
+                "Ton adhésion apparaîtra ici dès qu'elle sera payée.",
+                Modifier.fillMaxWidth().padding(32.dp),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+            )
+        }
+        return
+    }
+    val current = state.seasons[index.coerceAtMost(state.seasons.lastIndex)]
     Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
         PageBar("Mon adhésion", onBack) { StatusChip(current.status) }
         // Older seasons on the left, like a calendar.
@@ -106,7 +124,7 @@ fun MembershipScreen(
             val season = state.seasons[shown]
             val events = season.events.filter { filter == null || it.presence == filter }
             LazyColumn(contentPadding = PaddingValues(start = 10.dp, end = 10.dp, bottom = bottom + 24.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                item { Summary(season, onReceipt = { receipt = it }, onRenew = onRenew) }
+                item { Summary(season, onReceipt = openReceipt, onRenew = onRenew) }
                 item { Header(filter) { filter = it } }
                 if (events.isEmpty()) {
                     item {
@@ -132,7 +150,7 @@ fun MembershipScreen(
             containerColor = MaterialTheme.colorScheme.surface,
         ) {
             val shown = receipt
-            if (shown != null) ReceiptContent(shown, onDownload = {}) else EventContent(event) { receipt = it }
+            if (shown != null) ReceiptContent(shown, onDownload = {}) else EventContent(event, openReceipt)
         }
     }
     // The receipt of the membership, opened from the summary.
@@ -205,7 +223,7 @@ private fun Arrow(
 @Composable
 private fun Summary(
     season: SeasonView,
-    onReceipt: (ReceiptView) -> Unit,
+    onReceipt: (String) -> Unit,
     onRenew: () -> Unit,
 ) {
     val past = season.events.filter { it.presence != Presence.UPCOMING }
@@ -349,7 +367,7 @@ private fun EventCard(
         Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f)) {
             Text(event.name, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text("${event.time} · ${event.venue}", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(listOf(event.time, event.venue).filter { it.isNotBlank() }.joinToString(" · "), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Spacer(Modifier.height(5.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.size(7.dp).clip(CircleShape).background(color))
@@ -390,7 +408,7 @@ private fun Presence.look(): Pair<String, Color> =
 @Composable
 private fun EventContent(
     event: SeasonEvent,
-    onReceipt: (ReceiptView) -> Unit,
+    onReceipt: (String) -> Unit,
 ) {
     val (label, color) = event.presence.look()
     Column(Modifier.fillMaxWidth().padding(start = 24.dp, end = 24.dp, bottom = 28.dp)) {
@@ -399,7 +417,7 @@ private fun EventContent(
             Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f)) {
                 Text(event.name, fontSize = 20.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                Text("${event.time} · ${event.venue}", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
+                Text(listOf(event.time, event.venue).filter { it.isNotBlank() }.joinToString(" · "), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
             }
         }
         Spacer(Modifier.height(18.dp))
@@ -430,7 +448,7 @@ private fun EventContent(
                 Icon(painterResource(Res.drawable.ic_payments), null, Modifier.size(18.dp), tint = GOLD)
                 Spacer(Modifier.width(10.dp))
                 Text("Voir le reçu", Modifier.weight(1f), color = Color.White, fontWeight = FontWeight.SemiBold)
-                Text(paid.amount, color = Color.White, fontWeight = FontWeight.SemiBold)
+                Icon(painterResource(Res.drawable.ic_chevron_right), null, Modifier.size(20.dp), tint = Color.White)
             }
         }
     }
