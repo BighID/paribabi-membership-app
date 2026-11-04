@@ -1,4 +1,15 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import java.util.Properties
+
+/**
+ * The server the app talks to: `paribabi.serverUrl` in local.properties (never committed), the address of the Mac
+ * on the network for a real phone ("http://192.168.1.20:8080"). Empty: the emulator reaches the Mac by itself.
+ */
+val serverUrl: String =
+    Properties()
+        .apply { rootProject.file("local.properties").takeIf { it.exists() }?.inputStream()?.use(::load) }
+        .getProperty("paribabi.serverUrl")
+        .orEmpty()
 
 plugins {
     alias(libs.plugins.androidApplication)
@@ -15,6 +26,7 @@ dependencies {
 
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.biometric)
+    implementation(libs.androidx.fragment)
 
     implementation(libs.compose.uiToolingPreview)
     debugImplementation(libs.compose.uiTooling)
@@ -30,6 +42,7 @@ android {
         targetSdk = libs.versions.android.targetSdk.get().toInt()
         versionCode = 1
         versionName = "1.0"
+        buildConfigField("String", "SERVER_URL", "\"$serverUrl\"")
     }
     packaging {
         resources {
@@ -51,5 +64,6 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }

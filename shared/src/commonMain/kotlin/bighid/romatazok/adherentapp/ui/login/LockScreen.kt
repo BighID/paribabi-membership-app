@@ -26,7 +26,6 @@ import kotlinx.coroutines.launch
 @Composable
 fun LockScreen(
     service: LoginService,
-    phone: String,
     onUnlocked: () -> Unit,
     /** Forgotten or locked PIN: signed out, to choose a new one with "Code PIN oublié ?". */
     onSignOut: () -> Unit,
@@ -44,11 +43,12 @@ fun LockScreen(
             onChange = { error = null },
             onPin = { pin ->
                 scope.launch {
-                    when (val check = service.checkPin(phone, pin)) {
+                    when (val check = service.verifyPin(pin)) {
                         PinCheck.SignedIn, PinCheck.OtherPhone -> onUnlocked()
                         is PinCheck.Wrong -> error = wrongPin(check.triesLeft)
                         PinCheck.Locked -> onSignOut()
                         PinCheck.TooEasy -> Unit
+                        is PinCheck.Failed -> error = check.message
                     }
                 }
             },

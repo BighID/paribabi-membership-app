@@ -23,9 +23,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.isImeVisible
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -60,6 +59,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalUriHandler
@@ -90,7 +90,10 @@ private enum class Takeover { ASKING, REPORTING, REPORTED }
  * then the PIN. On another phone: the number, a code sent, the PIN, and when another phone is connected, its agreement
  * or the team's. From another phone, a known number and an unknown one go through exactly the same screens.
  */
-@OptIn(ExperimentalLayoutApi::class)
+/** The keyboard takes some height at the bottom: the same test on Android and iOS. */
+@Composable
+private fun keyboardOpen(): Boolean = WindowInsets.ime.getBottom(LocalDensity.current) > 0
+
 @Composable
 fun LoginScreen(
     service: LoginService,
@@ -114,7 +117,8 @@ fun LoginScreen(
     var resetting by remember { mutableStateOf(false) }
     var takeover by remember { mutableStateOf(if (takenOver) Takeover.ASKING else null) }
     val newPin = remember { NewPin() }
-    val phone = number
+    // As the server reads it, with the country's code.
+    val phone = country.international(number)
     val shownNumber = "${country.dial} ${number.grouped()}"
 
     fun back() {
@@ -135,7 +139,8 @@ fun LoginScreen(
                 sentAt++
                 step = Step.CODE
             }
-            is Start.TooMany -> error = "Trop de demandes. Réessaie dans ${answer.minutes} min."
+            Start.TooMany -> error = "Trop de demandes. Réessaie plus tard."
+            is Start.Failed -> error = answer.message
         }
     }
 
@@ -163,12 +168,13 @@ fun LoginScreen(
             is PinCheck.Wrong -> error = wrongPin(check.triesLeft)
             PinCheck.Locked -> error = "Code bloqué. Touche « Code PIN oublié ? »."
             PinCheck.TooEasy -> error = "Trop facile. Choisis-en un autre."
+            is PinCheck.Failed -> error = check.message
         }
     }
 
     Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).navigationBarsPadding().imePadding()) {
         val pinStep = step == Step.PIN || step == Step.CREATE_PIN
-        val keyboard = WindowInsets.isImeVisible
+        val keyboard = keyboardOpen()
         AuthHero(
             onBack = if (step == Step.PHONE) null else ::back,
             size =
@@ -227,7 +233,8 @@ fun LoginScreen(
                                         CodeCheck.CreatePin -> step = Step.CREATE_PIN
                                         CodeCheck.EnterPin -> step = Step.PIN
                                         CodeCheck.Wrong -> error = "Code incorrect ou expiré."
-                                        is CodeCheck.Blocked -> error = "Trop d'essais. Réessaie dans ${check.minutes} min."
+                                        CodeCheck.Blocked -> error = "Trop d'essais. Réessaie dans 15 min."
+                                        is CodeCheck.Failed -> error = check.message
                                     }
                                 }
                             },
@@ -258,13 +265,16 @@ fun LoginScreen(
                             service.answerWindowSeconds,
                             onTeam = { runCatching { uri.openUri(TEAM_URL) } },
                         ) {
-                            scope.launch {
-                                when (service.awaitOtherPhone(phone)) {
-                                    OtherPhoneAnswer.Accepted -> onSignedIn(phone)
-                                    OtherPhoneAnswer.Refused -> {
-                                        step = Step.PHONE
-                                        error = "Demande refusée par ton autre téléphone."
-                                    }
+                            // Waits as long as this step is shown; leaving it stops asking.
+                            when (service.awaitOtherPhone(phone)) {
+                                OtherPhoneAnswer.Accepted -> onSignedIn(phone)
+                                OtherPhoneAnswer.Refused -> {
+                                    step = Step.PHONE
+                                    error = "Demande refusée par ton autre téléphone."
+                                }
+                                OtherPhoneAnswer.Expired -> {
+                                    step = Step.PHONE
+                                    error = "Ta demande a expiré. Recommence la connexion."
                                 }
                             }
                         }
@@ -278,11 +288,10 @@ fun LoginScreen(
  * The steps that are not a PIN. They never scroll: with the keyboard open, the top shrinks to leave them whole above
  * it.
  */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun FormStep(content: @Composable ColumnScope.() -> Unit) {
     // Rises with the top, at the same pace.
-    val top by animateDpAsState(if (WindowInsets.isImeVisible) 14.dp else 28.dp, tween(280))
+    val top by animateDpAsState(if (keyboardOpen()) 14.dp else 28.dp, tween(280))
     Column(Modifier.fillMaxSize().padding(start = 24.dp, end = 24.dp, top = top, bottom = 16.dp), content = content)
 }
 
@@ -486,11 +495,12 @@ private fun CodeStep(
 private fun ConfirmStep(
     seconds: Int,
     onTeam: () -> Unit,
-    onStart: () -> Unit,
+    /** The waiting itself, cancelled when the step goes. */
+    onStart: suspend () -> Unit,
 ) {
     var left by remember { mutableStateOf(seconds) }
     LaunchedEffect(Unit) {
-        onStart()
+        launch { onStart() }
         while (left > 0) {
             delay(1_000)
             left--

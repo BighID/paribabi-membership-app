@@ -48,6 +48,7 @@ fun DeviceRequestSheet(
     /** "Mar. 3 nov. · 17:42". */
     askedAt: String,
     onAccept: () -> Unit,
+    onRefuse: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     var refused by remember { mutableStateOf(false) }
@@ -81,7 +82,10 @@ fun DeviceRequestSheet(
                 )
                 Spacer(Modifier.height(22.dp))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    SheetButton("Non", MaterialTheme.colorScheme.onSurfaceVariant, Modifier.weight(1f), outlined = true) { refused = true }
+                    SheetButton("Non", MaterialTheme.colorScheme.onSurfaceVariant, Modifier.weight(1f), outlined = true) {
+                        refused = true
+                        onRefuse()
+                    }
                     SheetButton("Oui, c'est moi", ORANGE, Modifier.weight(1f), onClick = onAccept)
                 }
             }

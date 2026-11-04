@@ -15,7 +15,13 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import bighid.romatazok.adherentapp.data.ApiLoginService
+import bighid.romatazok.adherentapp.data.MemberApi
+import bighid.romatazok.adherentapp.data.PendingRequest
+import bighid.romatazok.adherentapp.data.SessionExpiredException
+import bighid.romatazok.adherentapp.data.platform
 import bighid.romatazok.adherentapp.ui.Page
 import bighid.romatazok.adherentapp.ui.SystemBack
 import bighid.romatazok.adherentapp.ui.activity.ActivityScreen
@@ -37,13 +43,12 @@ import bighid.romatazok.adherentapp.ui.login.ChangePinSheet
 import bighid.romatazok.adherentapp.ui.login.DeviceRequestSheet
 import bighid.romatazok.adherentapp.ui.login.LockScreen
 import bighid.romatazok.adherentapp.ui.login.LoginScreen
-import bighid.romatazok.adherentapp.ui.login.SampleLogin
 import bighid.romatazok.adherentapp.ui.membership.MembershipScreen
 import bighid.romatazok.adherentapp.ui.membership.SampleMembership
 import bighid.romatazok.adherentapp.ui.receipt.ReceiptContent
 import bighid.romatazok.adherentapp.ui.receipt.ReceiptView
 import bighid.romatazok.adherentapp.ui.theme.ParibabiTheme
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 /** Fictitious receipts of the home activity, until the screen is plugged to the server. */
 private val SampleReceipts =
@@ -58,63 +63,71 @@ private val SampleReceipts =
         "r8" to ReceiptView("R-2025-00412", "Adhésion PariBabi · Saison 2025-2026", "40 000 F", "18 octobre 2025 à 11:40", "Wave"),
     )
 
-/** Signed in with it, this phone receives a request from a new phone a few seconds later. */
-private const val SAMPLE_OLD_PHONE = "0700000005"
+/** What the phone's safe keeps besides the session: the number signed in, the lock on opening. */
+private const val PHONE_KEY = "phone"
+private const val LOCK_KEY = "lock_on_open"
 
-/** Signed in with it, this phone is signed out a few seconds later by a change the team validated. */
-private const val SAMPLE_TAKEN_OVER = "0700000006"
-
-/** No tabs: everything starts from the home, one page at most, and every page comes back to it. */
+/**
+ * No tabs: everything starts from the home, one page at most, and every page comes back to it. [serverUrl] empty:
+ * the development machine, as the emulator or the simulator sees it.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun App() {
+fun App(serverUrl: String = "") {
     ParibabiTheme(dark = isSystemInDarkTheme()) {
+        val platform = remember { platform() }
+        val secure = platform.secure
+        val api = remember { MemberApi(platform.httpEngine(), secure, serverUrl.ifBlank { platform.defaultServerUrl }) }
+        val login = remember { ApiLoginService(api, secure, platform.deviceModel) }
+        val scope = rememberCoroutineScope()
         var page by remember { mutableStateOf<Page>(Page.Home) }
         var editing by remember { mutableStateOf(false) }
         var receipt by remember { mutableStateOf<ReceiptView?>(null) }
         var event by remember { mutableStateOf<UpcomingEvent?>(null) }
         var message by remember { mutableStateOf<ActivityRow?>(null) }
         var home by remember { mutableStateOf(SampleHome) }
-        // The number signed in on this phone; null shows the connection.
-        var phone by remember { mutableStateOf<String?>(null) }
+        // The number signed in on this phone, kept with its session; null shows the connection.
+        var phone by remember { mutableStateOf(secure.get(PHONE_KEY)?.takeIf { api.hasSession }) }
         var notice by remember { mutableStateOf<String?>(null) }
-        var deviceRequest by remember { mutableStateOf(false) }
-        var takenOver by remember { mutableStateOf(false) }
-        var lockOnOpen by remember { mutableStateOf(false) }
-        var locked by remember { mutableStateOf(false) }
+        var deviceRequest by remember { mutableStateOf<PendingRequest?>(null) }
+        var lockOnOpen by remember { mutableStateOf(secure.get(LOCK_KEY) == "1") }
+        // Opened again with a session and the lock asked for: the PIN first.
+        var locked by remember { mutableStateOf(phone != null && lockOnOpen) }
         var changingPin by remember { mutableStateOf(false) }
-        val login = remember { SampleLogin() }
+        // Counts the returns to the foreground, to ask the server again.
+        var resumed by remember { mutableStateOf(0) }
+        val signedOut: (String?) -> Unit = { said ->
+            api.forget()
+            phone = null
+            notice = said
+            locked = false
+            deviceRequest = null
+        }
         val signedIn = phone
         if (signedIn == null) {
-            LoginScreen(login, notice, takenOver) {
+            LoginScreen(login, notice) {
+                secure.put(PHONE_KEY, it)
                 phone = it
                 notice = null
-                takenOver = false
                 page = Page.Home
             }
             return@ParibabiTheme
         }
-        LaunchedEffect(signedIn) {
-            // Fictitious: this number plays the phone already connected, asked by a new one.
-            if (signedIn == SAMPLE_OLD_PHONE) {
-                delay(3_000)
-                deviceRequest = true
-            }
-            // Fictitious: this one is signed out by a change the team validated, without its agreement.
-            if (signedIn == SAMPLE_TAKEN_OVER) {
-                delay(3_000)
-                phone = null
-                takenOver = true
-                notice = "L'équipe a ouvert ton compte sur un autre téléphone aujourd'hui à 18:02."
+        LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { resumed++ }
+        LaunchedEffect(signedIn, resumed) {
+            // A new phone may be waiting for this one's yes; a session over sends back to the connection.
+            try {
+                deviceRequest = api.pendingRequests().firstOrNull()
+            } catch (_: SessionExpiredException) {
+                signedOut("Ta session a pris fin. Reconnecte-toi.")
+            } catch (_: Exception) {
+                // No network: asked again at the next return.
             }
         }
         // Left in the background, the app asks the PIN again on return, when the member turned it on.
         LifecycleEventEffect(Lifecycle.Event.ON_STOP) { if (lockOnOpen) locked = true }
         if (locked) {
-            LockScreen(login, signedIn, onUnlocked = { locked = false }, onSignOut = {
-                locked = false
-                phone = null
-            })
+            LockScreen(login, onUnlocked = { locked = false }, onSignOut = { signedOut(null) })
             return@ParibabiTheme
         }
         SystemBack(page != Page.Home) { page = Page.Home }
@@ -185,7 +198,10 @@ fun App() {
                     editing = false
                 },
                 lockOnOpen = lockOnOpen,
-                onLockOnOpen = { lockOnOpen = it },
+                onLockOnOpen = {
+                    lockOnOpen = it
+                    secure.put(LOCK_KEY, if (it) "1" else "0")
+                },
                 onChangePin = {
                     // A sheet in place of the other, never one over another.
                     editing = false
@@ -193,25 +209,28 @@ fun App() {
                 },
                 onLogout = {
                     editing = false
-                    phone = null
+                    scope.launch { api.logout() }
+                    signedOut(null)
                 },
             )
         }
         if (changingPin) {
-            ChangePinSheet(login, signedIn, onDismiss = { changingPin = false }, onLocked = {
+            ChangePinSheet(login, onDismiss = { changingPin = false }, onLocked = {
                 changingPin = false
-                phone = null
+                signedOut(null)
             })
         }
-        if (deviceRequest) {
+        deviceRequest?.let { request ->
             DeviceRequestSheet(
-                "Aujourd'hui à 17:42",
+                "Depuis ${request.label ?: "un nouveau téléphone"}",
                 onAccept = {
-                    deviceRequest = false
-                    phone = null
-                    notice = "Ton compte est maintenant ouvert sur un autre téléphone."
+                    scope.launch {
+                        runCatching { api.answerRequest(request.id, accept = true) }
+                            .onSuccess { signedOut("Ton compte est maintenant ouvert sur un autre téléphone.") }
+                    }
                 },
-                onDismiss = { deviceRequest = false },
+                onRefuse = { scope.launch { runCatching { api.answerRequest(request.id, accept = false) } } },
+                onDismiss = { deviceRequest = null },
             )
         }
     }

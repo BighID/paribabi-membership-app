@@ -52,7 +52,6 @@ private enum class Change { CURRENT, NEW, DONE }
 @Composable
 fun ChangePinSheet(
     service: LoginService,
-    phone: String,
     onDismiss: () -> Unit,
     /** The current PIN locked after 5 tries: signed out, to choose a new one with "Code PIN oublié ?". */
     onLocked: () -> Unit,
@@ -60,6 +59,8 @@ fun ChangePinSheet(
     val scope = rememberCoroutineScope()
     var step by remember { mutableStateOf(Change.CURRENT) }
     var error by remember { mutableStateOf<String?>(null) }
+    // Checked by the server at the first step, sent again with the new one at the last.
+    var currentPin by remember { mutableStateOf("") }
     val newPin = remember { NewPin() }
     val canGoBack = step == Change.NEW
     fun back() {
@@ -90,11 +91,15 @@ fun ChangePinSheet(
                             onChange = { error = null },
                             onPin = { pin ->
                                 scope.launch {
-                                    when (val check = service.checkPin(phone, pin)) {
-                                        PinCheck.SignedIn, PinCheck.OtherPhone -> step = Change.NEW
+                                    when (val check = service.verifyPin(pin)) {
+                                        PinCheck.SignedIn, PinCheck.OtherPhone -> {
+                                            currentPin = pin
+                                            step = Change.NEW
+                                        }
                                         is PinCheck.Wrong -> error = wrongPin(check.triesLeft)
                                         PinCheck.Locked -> onLocked()
                                         PinCheck.TooEasy -> Unit
+                                        is PinCheck.Failed -> error = check.message
                                     }
                                 }
                             },
@@ -108,9 +113,16 @@ fun ChangePinSheet(
                             onChange = { error = null },
                             onPin = { pin ->
                                 scope.launch {
-                                    when (service.createPin(phone, pin)) {
+                                    when (val check = service.changePin(currentPin, pin)) {
+                                        PinCheck.SignedIn, PinCheck.OtherPhone -> step = Change.DONE
                                         PinCheck.TooEasy -> error = "Trop facile. Choisis-en un autre."
-                                        else -> step = Change.DONE
+                                        PinCheck.Locked -> onLocked()
+                                        is PinCheck.Wrong -> {
+                                            newPin.restart()
+                                            step = Change.CURRENT
+                                            error = wrongPin(check.triesLeft)
+                                        }
+                                        is PinCheck.Failed -> error = check.message
                                     }
                                 }
                             },
