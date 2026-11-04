@@ -102,6 +102,9 @@ fun App(serverUrl: String = "") {
             notice = said
             locked = false
             deviceRequest = null
+            // The lock was this member's choice: the next one on this phone chooses again.
+            lockOnOpen = false
+            secure.remove(LOCK_KEY)
         }
         val signedIn = phone
         if (signedIn == null) {
