@@ -40,8 +40,11 @@ kotlin {
         androidMain.dependencies {
             implementation(libs.compose.uiToolingPreview)
             implementation(libs.compose.uiTooling)
+            implementation(libs.androidx.activity.compose)
+            implementation(libs.androidx.biometric)
         }
         commonMain.dependencies {
+            implementation(libs.qrose)
             implementation(libs.compose.runtime)
             implementation(libs.compose.foundation)
             implementation(libs.compose.material3)

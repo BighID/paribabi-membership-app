@@ -1,0 +1,20 @@
+{
+  "svg": "/Users/macpro/StudioProjects/AdherentApp/assets/paribabi-carte-verso.svg",
+  "out": "/Users/macpro/StudioProjects/AdherentApp/shared/src/commonMain/composeResources/drawable/carte_identite.png",
+  "scale": 2,
+  "viewBox": [0, 30, 856, 510],
+  "hide": ["reperes", "champs", "logo"],
+  "logo": { "file": "/Users/macpro/StudioProjects/AdherentApp/shared/src/commonMain/composeResources/drawable/wordmark_light.png", "box": [688, 48, 150, 64], "pad": 6 },
+  "edits": [
+    [" rx=\"34\"/></clipPath>", "/></clipPath>"],
+    ["<g id=\"photo\" inkscape:groupmode=\"layer\"", "<g id=\"photo\" transform=\"translate(-26.1 -35.7) scale(1.18)\" inkscape:groupmode=\"layer\""],
+    ["x=\"145\" y=\"390\"", "x=\"145\" y=\"420\""],
+    ["x=\"330\" y=\"78\"", "x=\"314\" y=\"78\""],
+    ["x=\"330\" y=\"108\"", "x=\"314\" y=\"108\""],
+    ["x1=\"330\" y1=\"150\" x2=\"812\" y2=\"150\"", "x1=\"314\" y1=\"136\" x2=\"834\" y2=\"136\""],
+    ["x=\"330\" y=\"352\"", "x=\"314\" y=\"300\""],
+    ["x=\"580\" y=\"352\"", "x=\"576\" y=\"300\""],
+    ["x=\"330\" y=\"420\"", "x=\"314\" y=\"362\""],
+    ["x=\"580\" y=\"420\"", "x=\"576\" y=\"362\""]
+  ]
+}

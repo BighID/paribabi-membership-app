@@ -1,0 +1,14 @@
+{
+  "svg": "/Users/macpro/StudioProjects/AdherentApp/assets/paribabi-carte-recto.svg",
+  "out": "/Users/macpro/StudioProjects/AdherentApp/shared/src/commonMain/composeResources/drawable/carte_qr.png",
+  "scale": 2,
+  "viewBox": [0, 30, 856, 510],
+  "hide": ["reperes", "qr"],
+  "logo": { "file": "/Users/macpro/StudioProjects/AdherentApp/shared/src/commonMain/composeResources/drawable/wordmark_dark.png", "box": [684, 458, 150, 60], "pad": 8 },
+  "edits": [
+    [" rx=\"34\"/></clipPath>", "/></clipPath>"],
+    ["<rect width=\"856\" height=\"540\" rx=\"34\" fill=", "<rect width=\"856\" height=\"540\" fill="],
+    ["id=\"accroche\" x=\"428\" y=\"58\"", "id=\"accroche\" x=\"428\" y=\"68\""],
+    ["x=\"258\" y=\"80\" width=\"340\" height=\"340\"", "x=\"270\" y=\"92\" width=\"316\" height=\"316\""]
+  ]
+}
