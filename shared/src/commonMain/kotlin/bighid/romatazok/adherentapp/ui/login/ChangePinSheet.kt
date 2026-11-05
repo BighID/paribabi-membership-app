@@ -59,6 +59,7 @@ fun ChangePinSheet(
     val scope = rememberCoroutineScope()
     var step by remember { mutableStateOf(Change.CURRENT) }
     var error by remember { mutableStateOf<String?>(null) }
+    var checking by remember { mutableStateOf(false) }
     // Checked by the server at the first step, sent again with the new one at the last.
     var currentPin by remember { mutableStateOf("") }
     val newPin = remember { NewPin() }
@@ -90,8 +91,11 @@ fun ChangePinSheet(
                             error = error,
                             onChange = { error = null },
                             onPin = { pin ->
+                                checking = true
                                 scope.launch {
-                                    when (val check = service.verifyPin(pin)) {
+                                    val check = service.verifyPin(pin)
+                                    checking = false
+                                    when (check) {
                                         PinCheck.SignedIn, PinCheck.OtherPhone -> {
                                             currentPin = pin
                                             step = Change.NEW
@@ -104,6 +108,7 @@ fun ChangePinSheet(
                                 }
                             },
                             fill = false,
+                            checking = checking,
                         )
                     Change.NEW ->
                         NewPinEntry(
@@ -112,8 +117,11 @@ fun ChangePinSheet(
                             error = error,
                             onChange = { error = null },
                             onPin = { pin ->
+                                checking = true
                                 scope.launch {
-                                    when (val check = service.changePin(currentPin, pin)) {
+                                    val check = service.changePin(currentPin, pin)
+                                    checking = false
+                                    when (check) {
                                         PinCheck.SignedIn, PinCheck.OtherPhone -> step = Change.DONE
                                         PinCheck.TooEasy -> error = "Trop facile. Choisis-en un autre."
                                         PinCheck.Locked -> onLocked()
@@ -127,6 +135,7 @@ fun ChangePinSheet(
                                 }
                             },
                             fill = false,
+                            checking = checking,
                         )
                     Change.DONE ->
                         Column(Modifier.fillMaxWidth().padding(top = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {

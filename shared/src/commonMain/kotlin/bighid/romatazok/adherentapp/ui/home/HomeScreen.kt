@@ -37,9 +37,12 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -48,12 +51,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import bighid.romatazok.adherentapp.ui.Loader
 import bighid.romatazok.adherentapp.ui.theme.Brand
 import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
@@ -62,6 +69,7 @@ import org.jetbrains.compose.resources.painterResource
  * The whole app starts here, without tabs: the card and its two gestures, my membership in one line, the nearest
  * event, and what happened. Each line opens what it is about.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     state: HomeState,
@@ -71,22 +79,73 @@ fun HomeScreen(
     onActivity: (ActivityRow) -> Unit,
     onAllActivity: () -> Unit,
     onEditProfile: () -> Unit,
+    /** Pulled down: the home is read again, the ring turning until it comes. */
+    refreshing: Boolean = false,
+    onRefresh: () -> Unit = {},
 ) {
     var masked by remember { mutableStateOf(false) }
     var showBack by remember { mutableStateOf(false) }
     val bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-    LazyColumn(
+    val pull = rememberPullToRefreshState()
+    PullToRefreshBox(
+        refreshing,
+        onRefresh,
         Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).statusBarsPadding(),
-        contentPadding = PaddingValues(top = 8.dp, bottom = bottom + 16.dp),
+        state = pull,
+        indicator = { RefreshRing(refreshing, pull.distanceFraction, Modifier.align(Alignment.TopCenter)) },
     ) {
+        HomeList(state, masked, showBack, bottom, onMask = { masked = !masked }, onFlip = { showBack = !showBack }, onMembership, onEvent, onAllEvents, onActivity, onAllActivity, onEditProfile)
+    }
+}
+
+/** The ring of the app in a small white disc, coming down with the finger and staying while the home is read. */
+@Composable
+private fun RefreshRing(
+    refreshing: Boolean,
+    pulled: Float,
+    modifier: Modifier,
+) {
+    val reach = if (refreshing) 1f else pulled.coerceIn(0f, 1f)
+    if (reach == 0f) return
+    Box(
+        modifier
+            .graphicsLayer {
+                translationY = reach * 64.dp.toPx() - 40.dp.toPx()
+                alpha = reach
+                scaleX = 0.6f + 0.4f * reach
+                scaleY = 0.6f + 0.4f * reach
+            }
+            .size(40.dp)
+            .shadow(6.dp, CircleShape)
+            .background(MaterialTheme.colorScheme.surface, CircleShape),
+        contentAlignment = Alignment.Center,
+    ) { Loader(size = 22.dp) }
+}
+
+@Composable
+private fun HomeList(
+    state: HomeState,
+    masked: Boolean,
+    showBack: Boolean,
+    bottom: Dp,
+    onMask: () -> Unit,
+    onFlip: () -> Unit,
+    onMembership: () -> Unit,
+    onEvent: (String) -> Unit,
+    onAllEvents: () -> Unit,
+    onActivity: (ActivityRow) -> Unit,
+    onAllActivity: () -> Unit,
+    onEditProfile: () -> Unit,
+) {
+    LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(top = 8.dp, bottom = bottom + 16.dp)) {
         item { TopBar(Modifier.padding(start = SIDE, end = SIDE, bottom = 10.dp)) }
-        item { MemberCard(state.card, showBack, masked, onFlip = { showBack = !showBack }, Modifier.padding(horizontal = TIGHT)) }
+        item { MemberCard(state.card, showBack, masked, onFlip = onFlip, Modifier.padding(horizontal = TIGHT)) }
         item {
             CardActions(
                 showBack,
                 masked,
-                onQr = { showBack = !showBack },
-                onMask = { masked = !masked },
+                onQr = onFlip,
+                onMask = onMask,
                 onEdit = onEditProfile,
                 Modifier.padding(start = TIGHT, end = TIGHT, top = 12.dp),
             )

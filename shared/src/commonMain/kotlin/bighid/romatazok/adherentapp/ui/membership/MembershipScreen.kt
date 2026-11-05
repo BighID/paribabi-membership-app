@@ -46,9 +46,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -60,9 +58,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import bighid.romatazok.adherentapp.ui.PageBar
-import bighid.romatazok.adherentapp.ui.receipt.LocalReceipts
-import bighid.romatazok.adherentapp.ui.receipt.ReceiptContent
-import bighid.romatazok.adherentapp.ui.receipt.ReceiptView
+import bighid.romatazok.adherentapp.ui.receipt.ReceiptPanel
 import org.jetbrains.compose.resources.painterResource
 
 /**
@@ -79,10 +75,9 @@ fun MembershipScreen(
     var index by remember { mutableStateOf(0) }
     var filter by remember { mutableStateOf<Presence?>(null) }
     var opened by remember { mutableStateOf<SeasonEvent?>(null) }
-    var receipt by remember { mutableStateOf<ReceiptView?>(null) }
-    val loadReceipt = LocalReceipts.current
-    val scope = rememberCoroutineScope()
-    val openReceipt: (String) -> Unit = { id -> scope.launch { receipt = loadReceipt(id) } }
+    // The payment whose receipt is open: the sheet opens at once and reads it.
+    var receipt by remember { mutableStateOf<String?>(null) }
+    val openReceipt: (String) -> Unit = { id -> receipt = id }
     val bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     if (state.seasons.isEmpty()) {
         Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
@@ -150,13 +145,13 @@ fun MembershipScreen(
             containerColor = MaterialTheme.colorScheme.surface,
         ) {
             val shown = receipt
-            if (shown != null) ReceiptContent(shown, onDownload = {}) else EventContent(event, openReceipt)
+            if (shown != null) ReceiptPanel(shown) else EventContent(event, openReceipt)
         }
     }
     // The receipt of the membership, opened from the summary.
     if (opened == null) {
         receipt?.let {
-            ModalBottomSheet({ receipt = null }, containerColor = MaterialTheme.colorScheme.surface) { ReceiptContent(it, onDownload = {}) }
+            ModalBottomSheet({ receipt = null }, containerColor = MaterialTheme.colorScheme.surface) { ReceiptPanel(it) }
         }
     }
 }

@@ -40,6 +40,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import bighid.romatazok.adherentapp.ui.Loader
 import bighid.romatazok.adherentapp.ui.events.NAVY_LIGHT
 import bighid.romatazok.adherentapp.ui.login.PinEntry
 import bighid.romatazok.adherentapp.ui.theme.Brand
@@ -64,6 +65,7 @@ fun EmailChangeSheet(
     val scope = rememberCoroutineScope()
     var step by remember { mutableStateOf(EmailStep.PIN) }
     var error by remember { mutableStateOf<String?>(null) }
+    var checking by remember { mutableStateOf(false) }
     ModalBottomSheet(onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), containerColor = MaterialTheme.colorScheme.background) {
         Column(Modifier.fillMaxWidth().imePadding().padding(start = 24.dp, end = 24.dp, bottom = 24.dp)) {
             Text("Changer mon email", Modifier.fillMaxWidth(), fontSize = 16.sp, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center)
@@ -76,17 +78,22 @@ fun EmailChangeSheet(
                             error = error,
                             onChange = { error = null },
                             onPin = { pin ->
+                                checking = true
                                 scope.launch {
                                     val problem = onPin(pin)
+                                    checking = false
                                     if (problem == null) step = EmailStep.CODE else error = problem
                                 }
                             },
                             fill = false,
+                            checking = checking,
                         )
                     EmailStep.CODE ->
-                        CodeStep(email, error, onChange = { error = null }) { code ->
+                        CodeStep(email, error, checking, onChange = { error = null }) { code ->
+                            checking = true
                             scope.launch {
                                 val problem = onCode(code)
+                                checking = false
                                 if (problem == null) step = EmailStep.DONE else error = problem
                             }
                         }
@@ -115,6 +122,8 @@ fun EmailChangeSheet(
 private fun CodeStep(
     email: String,
     error: String?,
+    /** The code is being checked: a small wheel in place of the error line, the boxes held. */
+    checking: Boolean,
     onChange: () -> Unit,
     onCode: (String) -> Unit,
 ) {
@@ -136,6 +145,7 @@ private fun CodeStep(
                 if (digits.length == 6) onCode(digits)
             },
             Modifier.fillMaxWidth().focusRequester(focus),
+            readOnly = checking,
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
             cursorBrush = SolidColor(Color.Transparent),
@@ -158,7 +168,11 @@ private fun CodeStep(
             },
         )
         Box(Modifier.fillMaxWidth().height(40.dp).padding(top = 10.dp), contentAlignment = Alignment.TopCenter) {
-            error?.let { Text(it, color = MaterialTheme.colorScheme.error, fontSize = 14.sp) }
+            if (checking) {
+                Loader(size = 20.dp)
+            } else {
+                error?.let { Text(it, color = MaterialTheme.colorScheme.error, fontSize = 14.sp) }
+            }
         }
     }
 }

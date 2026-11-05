@@ -42,6 +42,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -51,11 +52,14 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import bighid.romatazok.adherentapp.ui.Loader
 import bighid.romatazok.adherentapp.ui.rememberPhotoPicker
 import bighid.romatazok.adherentapp.ui.theme.Brand
+import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.decodeToImageBitmap
 import org.jetbrains.compose.resources.painterResource
 
@@ -68,7 +72,8 @@ import org.jetbrains.compose.resources.painterResource
 fun ProfileSheet(
     profile: Profile,
     onDismiss: () -> Unit,
-    onSave: (Profile) -> Unit,
+    /** Sent to the server; null once it accepted, otherwise what to tell the member, the sheet staying open. */
+    onSave: suspend (Profile) -> String?,
     /** "Demander mon code PIN à l'ouverture", off unless the member turns it on. */
     lockOnOpen: Boolean,
     onLockOnOpen: (Boolean) -> Unit,
@@ -76,6 +81,9 @@ fun ProfileSheet(
     onLogout: () -> Unit,
 ) {
     var draft by remember { mutableStateOf(profile) }
+    var saving by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
     val picker = rememberPhotoPicker { bytes -> runCatching { bytes.decodeToImageBitmap() }.onSuccess { draft = draft.copy(photo = it) } }
     ModalBottomSheet(onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), containerColor = MaterialTheme.colorScheme.surface) {
         Column(
@@ -104,11 +112,27 @@ fun ProfileSheet(
             Field("Email", draft.email, KeyboardType.Email) { draft = draft.copy(email = it) }
             Spacer(Modifier.height(4.dp))
             Button(
-                { onSave(draft.trimmed()) },
+                {
+                    if (!saving) {
+                        saving = true
+                        error = null
+                        scope.launch {
+                            error = onSave(draft.trimmed())
+                            saving = false
+                        }
+                    }
+                },
                 Modifier.fillMaxWidth().height(52.dp),
                 shape = RoundedCornerShape(16.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
-            ) { Text("Enregistrer", fontWeight = FontWeight.SemiBold) }
+            ) {
+                if (saving) {
+                    Loader(size = 22.dp, onAccent = true)
+                } else {
+                    Text("Enregistrer", fontWeight = FontWeight.SemiBold)
+                }
+            }
+            error?.let { Text(it, Modifier.fillMaxWidth(), color = MaterialTheme.colorScheme.error, fontSize = 13.sp, textAlign = TextAlign.Center) }
             Spacer(Modifier.height(8.dp))
             Text("Sécurité", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
             Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(MaterialTheme.colorScheme.background)) {

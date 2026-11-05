@@ -42,15 +42,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import bighid.romatazok.adherentapp.ui.CalendarEntry
-import bighid.romatazok.adherentapp.ui.receipt.LocalReceipts
-import bighid.romatazok.adherentapp.ui.receipt.ReceiptContent
-import bighid.romatazok.adherentapp.ui.receipt.ReceiptView
+import bighid.romatazok.adherentapp.ui.receipt.ReceiptPanel
 import androidx.compose.foundation.Image
 import androidx.compose.runtime.produceState
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.layout.ContentScale
-import kotlinx.coroutines.launch
 import bighid.romatazok.adherentapp.ui.rememberAddToCalendar
 import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
@@ -67,14 +63,13 @@ fun EventSheet(
     onDismiss: () -> Unit,
     onRenew: () -> Unit,
 ) {
-    var receipt by remember { mutableStateOf<ReceiptView?>(null) }
-    val loadReceipt = LocalReceipts.current
-    val scope = rememberCoroutineScope()
+    // The ticket's payment, once its receipt is asked: the sheet shows it in place.
+    var receipt by remember { mutableStateOf<String?>(null) }
     val uri = LocalUriHandler.current
     val addToCalendar = rememberAddToCalendar()
     ModalBottomSheet(onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), containerColor = MaterialTheme.colorScheme.surface) {
         receipt?.let {
-            ReceiptContent(it, onDownload = {})
+            ReceiptPanel(it)
             return@ModalBottomSheet
         }
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(start = 20.dp, end = 20.dp, bottom = 28.dp)) {
@@ -100,7 +95,7 @@ fun EventSheet(
                 }
             }
             Spacer(Modifier.height(16.dp))
-            Mine(event, memberActive, onReceipt = { id -> scope.launch { receipt = loadReceipt(id) } }, onRenew = onRenew)
+            Mine(event, memberActive, onReceipt = { id -> receipt = id }, onRenew = onRenew)
             event.description?.let {
                 Spacer(Modifier.height(18.dp))
                 Text(it, fontSize = 15.sp, lineHeight = 22.sp)

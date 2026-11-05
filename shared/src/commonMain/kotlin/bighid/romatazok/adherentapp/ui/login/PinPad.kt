@@ -5,6 +5,11 @@ import adherentapp.shared.generated.resources.ic_backspace
 import adherentapp.shared.generated.resources.ic_fingerprint
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -34,6 +39,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
@@ -43,6 +49,8 @@ import androidx.compose.ui.unit.sp
 import bighid.romatazok.adherentapp.ui.events.NAVY_LIGHT
 import bighid.romatazok.adherentapp.ui.events.ORANGE
 import kotlinx.coroutines.delay
+import kotlin.math.PI
+import kotlin.math.sin
 import org.jetbrains.compose.resources.painterResource
 
 /**
@@ -61,6 +69,8 @@ fun PinPanel(
     onDelete: () -> Unit,
     modifier: Modifier = Modifier,
     fill: Boolean = true,
+    /** The server checks: the dots pulse in a wave, the whole keypad held. */
+    checking: Boolean = false,
     bottomLeft: (@Composable () -> Unit)? = null,
     footer: @Composable () -> Unit = {},
 ) {
@@ -82,38 +92,50 @@ fun PinPanel(
                 )
             }
             Spacer(Modifier.height(18.dp))
-            PinDots(pin.length, shake, isError)
+            PinDots(pin.length, shake, isError, checking)
         }
         Spacer(Modifier.height(16.dp))
-        PinKeypad(enabled, onDigit, onDelete, bottomLeft)
+        PinKeypad(enabled && !checking, onDigit, onDelete, bottomLeft, held = checking)
         footer()
     }
 }
 
 /**
  * Four dots, filled as the digits come, never the digits themselves. Empty, a light tint of the colour; filled, the
- * orange of the card; in error, the error colour, and [shake] changing shakes them once.
+ * orange of the card; in error, the error colour, and [shake] changing shakes them once. While the server checks,
+ * they swell one after the other, softly, like a wave.
  */
 @Composable
 fun PinDots(
     filled: Int,
     shake: Int,
     error: Boolean,
+    checking: Boolean = false,
 ) {
     val offset = remember { Animatable(0f) }
     LaunchedEffect(shake) {
         if (shake == 0) return@LaunchedEffect
         for (x in listOf(-10f, 10f, -8f, 8f, 0f)) offset.animateTo(x, tween(80))
     }
+    val wave by rememberInfiniteTransition().animateFloat(0f, 1f, infiniteRepeatable(tween(1_100, easing = LinearEasing), RepeatMode.Restart))
     Row(Modifier.offset(x = offset.value.dp), horizontalArrangement = Arrangement.Center) {
         repeat(PIN_LENGTH) { i ->
             val isFilled = i < filled
             val full = if (error) MaterialTheme.colorScheme.error else ORANGE
             val fillColor by animateColorAsState(if (isFilled) full else NAVY_LIGHT.copy(alpha = 0.12f), tween(180))
             val borderColor by animateColorAsState(if (isFilled) full else NAVY_LIGHT.copy(alpha = 0.35f), tween(180))
+            // Each dot rises in turn, a short bump then rest, the next one a little later.
+            val phase = ((wave - i * WAVE_STEP) % 1f + 1f) % 1f
+            val bump = if (checking && phase < WAVE_BUMP) sin(PI * phase / WAVE_BUMP).toFloat() else 0f
             Box(
                 Modifier
                     .padding(horizontal = 10.dp)
+                    .graphicsLayer {
+                        scaleX = 1f + 0.28f * bump
+                        scaleY = 1f + 0.28f * bump
+                        translationY = -5.dp.toPx() * bump
+                        alpha = if (checking) 0.7f + 0.3f * bump else 1f
+                    }
                     .size(18.dp)
                     .clip(CircleShape)
                     .background(fillColor)
@@ -133,6 +155,8 @@ fun PinKeypad(
     onDigit: (Char) -> Unit,
     onDelete: () -> Unit,
     bottomLeft: (@Composable () -> Unit)? = null,
+    /** While the server checks: not even the erasing key. */
+    held: Boolean = false,
 ) {
     val haptic = LocalHapticFeedback.current
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -156,7 +180,7 @@ fun PinKeypad(
             }) {
                 Text("0", fontSize = 24.sp, fontWeight = FontWeight.SemiBold)
             }
-            Key(Modifier.weight(1f), enabled = true, onClick = {
+            Key(Modifier.weight(1f), enabled = !held, onClick = {
                 haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                 onDelete()
             }) {
@@ -166,6 +190,10 @@ fun PinKeypad(
         Spacer(Modifier.height(8.dp))
     }
 }
+
+/** The wave of the dots: the delay from one to the next, and the share of the turn a dot spends rising. */
+private const val WAVE_STEP = 0.14f
+private const val WAVE_BUMP = 0.42f
 
 /** The fingerprint key, in the bottom left of the keypad. */
 @Composable
@@ -211,6 +239,7 @@ fun PinEntry(
     onPin: (String) -> Unit,
     modifier: Modifier = Modifier,
     fill: Boolean = true,
+    checking: Boolean = false,
     bottomLeft: (@Composable () -> Unit)? = null,
     footer: @Composable () -> Unit = {},
 ) {
@@ -237,6 +266,7 @@ fun PinEntry(
         onDelete = { pin = pin.dropLast(1) },
         modifier = modifier,
         fill = fill,
+        checking = checking,
         bottomLeft = bottomLeft,
         footer = footer,
     )
@@ -281,6 +311,7 @@ fun NewPinEntry(
     onPin: (String) -> Unit,
     modifier: Modifier = Modifier,
     fill: Boolean = true,
+    checking: Boolean = false,
 ) {
     LaunchedEffect(error) {
         if (error == null) return@LaunchedEffect
@@ -326,6 +357,7 @@ fun NewPinEntry(
         onDelete = { if (state.confirming) state.second = state.second.dropLast(1) else state.first = state.first.dropLast(1) },
         modifier = modifier,
         fill = fill,
+        checking = checking,
     )
 }
 

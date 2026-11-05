@@ -72,6 +72,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import bighid.romatazok.adherentapp.ui.Loader
 import bighid.romatazok.adherentapp.ui.SystemBack
 import bighid.romatazok.adherentapp.ui.events.CREAM
 import bighid.romatazok.adherentapp.ui.events.GOLD
@@ -144,20 +145,29 @@ fun LoginScreen(
         }
     }
 
-    fun start() {
+    /** One call to the server at a time: its wheel turns, what is typed waits. */
+    fun working(call: suspend () -> Unit) {
+        if (busy) return
         busy = true
+        scope.launch {
+            try {
+                call()
+            } finally {
+                busy = false
+            }
+        }
+    }
+
+    fun start() {
         error = null
         resetting = false
-        scope.launch {
-            started(service.start(phone))
-            busy = false
-        }
+        working { started(service.start(phone)) }
     }
 
     fun forgot() {
         error = null
         resetting = true
-        scope.launch { started(service.forgotPin(phone)) }
+        working { started(service.forgotPin(phone)) }
     }
 
     /** What a PIN, typed or chosen, leads to. */
@@ -225,10 +235,11 @@ fun LoginScreen(
                             number = shownNumber,
                             sentAt = sentAt,
                             error = error,
+                            checking = busy,
                             onChange = { error = null },
                             onResend = { if (resetting) forgot() else start() },
                             onCode = { code ->
-                                scope.launch {
+                                working {
                                     when (val check = service.checkCode(phone, code)) {
                                         CodeCheck.CreatePin -> step = Step.CREATE_PIN
                                         CodeCheck.EnterPin -> step = Step.PIN
@@ -246,8 +257,9 @@ fun LoginScreen(
                         message = shownNumber,
                         error = error,
                         onChange = { error = null },
-                        onPin = { pin -> scope.launch { pinAnswer(service.checkPin(phone, pin)) } },
+                        onPin = { pin -> working { pinAnswer(service.checkPin(phone, pin)) } },
                         modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp),
+                        checking = busy,
                         footer = { ForgotLink(::forgot) },
                     )
                 Step.CREATE_PIN ->
@@ -256,8 +268,9 @@ fun LoginScreen(
                         resetting = resetting,
                         error = error,
                         onChange = { error = null },
-                        onPin = { pin -> scope.launch { pinAnswer(service.createPin(phone, pin)) } },
+                        onPin = { pin -> working { pinAnswer(service.createPin(phone, pin)) } },
                         modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 0.dp).padding(bottom = 16.dp),
+                        checking = busy,
                     )
                 Step.CONFIRM ->
                     FormStep {
@@ -387,7 +400,7 @@ private fun PhoneStep(
     }
     Error(error)
     Spacer(Modifier.height(18.dp))
-    MainButton(if (busy) "Un instant…" else "Continuer", enabled = complete && !busy, onClick = onSend)
+    MainButton("Continuer", enabled = complete, busy = busy, onClick = onSend)
     Spacer(Modifier.height(24.dp))
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
         Text("Pas encore adhérent ? ", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
@@ -402,6 +415,8 @@ private fun CodeStep(
     /** Changes with each code sent, to restart the 60 seconds. */
     sentAt: Int,
     error: String?,
+    /** The code is being checked, or another one sent: a small wheel under the boxes, which wait. */
+    checking: Boolean,
     onChange: () -> Unit,
     onResend: () -> Unit,
     onCode: (String) -> Unit,
@@ -450,6 +465,7 @@ private fun CodeStep(
             }
         },
         Modifier.fillMaxWidth().offset(x = shake.value.dp).focusRequester(focus),
+        readOnly = checking,
         singleLine = true,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
         cursorBrush = SolidColor(Color.Transparent),
@@ -457,7 +473,7 @@ private fun CodeStep(
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 repeat(CODE_LENGTH) { i ->
                     val filled = i < code.length
-                    val current = i == code.length
+                    val current = i == code.length && !checking
                     Box(
                         Modifier
                             .weight(1f)
@@ -473,13 +489,19 @@ private fun CodeStep(
             }
         },
     )
-    Error(error)
+    if (checking) {
+        Box(Modifier.fillMaxWidth().padding(top = 12.dp), contentAlignment = Alignment.Center) {
+            Loader(size = 20.dp)
+        }
+    } else {
+        Error(error)
+    }
     Spacer(Modifier.height(18.dp))
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
         Text("Pense aux spams.", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
         Text(
             if (wait > 0) "Renvoyer dans $wait s" else "Renvoyer le code",
-            Modifier.clip(RoundedCornerShape(8.dp)).clickable(enabled = wait == 0, onClick = onResend).padding(4.dp),
+            Modifier.clip(RoundedCornerShape(8.dp)).clickable(enabled = wait == 0 && !checking, onClick = onResend).padding(4.dp),
             color = if (wait > 0) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.primary,
             fontSize = 14.sp,
             fontWeight = FontWeight.SemiBold,
@@ -573,6 +595,8 @@ private fun Notice(text: String) {
 private fun MainButton(
     label: String,
     enabled: Boolean,
+    /** Its call on the way: a wheel in place of the label, the button held. */
+    busy: Boolean = false,
     onClick: () -> Unit,
 ) {
     Box(
@@ -581,10 +605,14 @@ private fun MainButton(
             .height(54.dp)
             .clip(RoundedCornerShape(16.dp))
             .background(if (enabled) ORANGE else ORANGE.copy(alpha = 0.35f))
-            .clickable(enabled = enabled, onClick = onClick),
+            .clickable(enabled = enabled && !busy, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        Text(label, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+        if (busy) {
+            Loader(size = 22.dp, onAccent = true)
+        } else {
+            Text(label, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+        }
     }
 }
 

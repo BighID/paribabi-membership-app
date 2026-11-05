@@ -15,13 +15,14 @@ import bighid.romatazok.adherentapp.ui.membership.Presence
 import bighid.romatazok.adherentapp.ui.membership.SeasonEvent
 import bighid.romatazok.adherentapp.ui.membership.SeasonStatus
 import bighid.romatazok.adherentapp.ui.membership.SeasonView
+import bighid.romatazok.adherentapp.ui.receipt.ReceiptSource
 import bighid.romatazok.adherentapp.ui.receipt.ReceiptView
 import org.jetbrains.compose.resources.decodeToImageBitmap
 
 /** What the screens show, from the server's answers: the only place that knows both. */
 class MemberRepository(
     private val api: MemberApi,
-) {
+) : ReceiptSource {
     private val posters = mutableMapOf<String, ImageBitmap?>()
 
     /** The home, the activity and the events, read together. */
@@ -59,10 +60,12 @@ class MemberRepository(
 
     suspend fun membership(): MembershipState = MembershipState(api.seasons().map(::season))
 
-    suspend fun receipt(paymentId: String): ReceiptView? = runCatching {
+    override suspend fun view(paymentId: String): ReceiptView? = runCatching {
         val receipt = api.receipt(paymentId)
         ReceiptView(receipt.number, receipt.title, Formats.fcfa(receipt.total), Formats.receiptDate(receipt.paidAt), receipt.method)
     }.getOrNull()
+
+    override suspend fun pdf(paymentId: String): Pair<String, ByteArray>? = api.receiptPdf(paymentId)
 
     /** Kept once read: a poster does not change while the app is open. */
     suspend fun poster(eventId: String): ImageBitmap? = posters.getOrPut(eventId) { api.poster(eventId)?.let { runCatching { it.decodeToImageBitmap() }.getOrNull() } }

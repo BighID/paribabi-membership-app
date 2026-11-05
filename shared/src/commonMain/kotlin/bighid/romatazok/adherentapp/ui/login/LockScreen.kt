@@ -33,6 +33,7 @@ fun LockScreen(
     val scope = rememberCoroutineScope()
     val biometric = rememberBiometricUnlock()
     var error by remember { mutableStateOf<String?>(null) }
+    var checking by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { biometric?.invoke(onUnlocked) }
     Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).navigationBarsPadding()) {
         AuthHero(onBack = null, size = HeroSize.KEYPAD)
@@ -42,8 +43,11 @@ fun LockScreen(
             error = error,
             onChange = { error = null },
             onPin = { pin ->
+                checking = true
                 scope.launch {
-                    when (val check = service.verifyPin(pin)) {
+                    val check = service.verifyPin(pin)
+                    checking = false
+                    when (check) {
                         PinCheck.SignedIn, PinCheck.OtherPhone -> onUnlocked()
                         is PinCheck.Wrong -> error = wrongPin(check.triesLeft)
                         PinCheck.Locked -> onSignOut()
@@ -53,6 +57,7 @@ fun LockScreen(
                 }
             },
             modifier = Modifier.weight(1f).padding(horizontal = 24.dp),
+            checking = checking,
             bottomLeft = biometric?.let { unlock -> { BiometricKey { unlock(onUnlocked) } } },
             footer = { ForgotLink(onSignOut) },
         )

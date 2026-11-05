@@ -51,9 +51,9 @@ import bighid.romatazok.adherentapp.ui.login.wrongPin
 import bighid.romatazok.adherentapp.ui.membership.MembershipScreen
 import bighid.romatazok.adherentapp.ui.membership.MembershipState
 import bighid.romatazok.adherentapp.ui.receipt.LocalReceipts
-import bighid.romatazok.adherentapp.ui.receipt.ReceiptContent
-import bighid.romatazok.adherentapp.ui.receipt.ReceiptView
+import bighid.romatazok.adherentapp.ui.receipt.ReceiptPanel
 import bighid.romatazok.adherentapp.ui.theme.ParibabiTheme
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
 /** What the phone's safe keeps besides the session: the number signed in, the lock on opening. */
@@ -76,7 +76,8 @@ fun App(serverUrl: String = "") {
         val scope = rememberCoroutineScope()
         var page by remember { mutableStateOf<Page>(Page.Home) }
         var editing by remember { mutableStateOf(false) }
-        var receipt by remember { mutableStateOf<ReceiptView?>(null) }
+        // The payment whose receipt is open: the sheet opens at once and reads it.
+        var receipt by remember { mutableStateOf<String?>(null) }
         var event by remember { mutableStateOf<UpcomingEvent?>(null) }
         var message by remember { mutableStateOf<ActivityRow?>(null) }
         var newEmail by remember { mutableStateOf<String?>(null) }
@@ -85,6 +86,9 @@ fun App(serverUrl: String = "") {
         var activity by remember { mutableStateOf<List<ActivityRow>>(emptyList()) }
         var events by remember { mutableStateOf<List<UpcomingEvent>>(emptyList()) }
         var membership by remember { mutableStateOf<MembershipState?>(null) }
+        var membershipFailed by remember { mutableStateOf(false) }
+        // Counts the asks to read the membership again.
+        var membershipTry by remember { mutableStateOf(0) }
         var loadFailed by remember { mutableStateOf(false) }
         // The number signed in on this phone, kept with its session; null shows the connection.
         var phone by remember { mutableStateOf(secure.get(PHONE_KEY)?.takeIf { api.hasSession }) }
@@ -96,6 +100,8 @@ fun App(serverUrl: String = "") {
         var changingPin by remember { mutableStateOf(false) }
         // Counts the returns to the foreground, and the asks to read again, to ask the server again.
         var resumed by remember { mutableStateOf(0) }
+        // Pulled down on the home: the ring stays until the reading ends.
+        var refreshing by remember { mutableStateOf(false) }
         val signedOut: (String?) -> Unit = { said ->
             api.forget()
             phone = null
@@ -134,10 +140,16 @@ fun App(serverUrl: String = "") {
             } catch (_: Exception) {
                 // No network: what was read stays; the first time, the home says so.
                 loadFailed = true
+            } finally {
+                refreshing = false
             }
         }
-        LaunchedEffect(page, membership) {
-            if (page == Page.Membership && membership == null) membership = runCatching { data.membership() }.getOrNull()
+        LaunchedEffect(page, membership, membershipTry) {
+            if (page == Page.Membership && membership == null) {
+                membershipFailed = false
+                membership = runCatching { data.membership() }.getOrNull()
+                membershipFailed = membership == null
+            }
         }
         // Left in the background, the app asks the PIN again on return, when the member turned it on.
         LifecycleEventEffect(Lifecycle.Event.ON_STOP) { if (lockOnOpen) locked = true }
@@ -150,8 +162,8 @@ fun App(serverUrl: String = "") {
             Loading(failed = loadFailed, onRetry = { resumed++ })
             return@ParibabiTheme
         }
-        val openReceipt: (String) -> Unit = { id -> scope.launch { receipt = data.receipt(id) } }
-        CompositionLocalProvider(LocalReceipts provides data::receipt, LocalPosters provides data::poster) {
+        val openReceipt: (String) -> Unit = { id -> receipt = id }
+        CompositionLocalProvider(LocalReceipts provides data, LocalPosters provides data::poster) {
             SystemBack(page != Page.Home) { page = Page.Home }
             AnimatedContent(
                 page,
@@ -182,9 +194,14 @@ fun App(serverUrl: String = "") {
                             },
                             onAllActivity = { page = Page.Activity },
                             onEditProfile = { editing = true },
+                            refreshing = refreshing,
+                            onRefresh = {
+                                refreshing = true
+                                resumed++
+                            },
                         )
                     Page.Membership ->
-                        membership?.let { MembershipScreen(it, back) } ?: Loading(failed = false, onRetry = {})
+                        membership?.let { MembershipScreen(it, back) } ?: Loading(failed = membershipFailed, onRetry = { membershipTry++ })
                     Page.Events -> EventsScreen(events, back) { event = it }
                     Page.Activity ->
                         ActivityScreen(activity, back) { row ->
@@ -210,7 +227,7 @@ fun App(serverUrl: String = "") {
                 })
             }
             receipt?.let {
-                ModalBottomSheet({ receipt = null }, containerColor = MaterialTheme.colorScheme.surface) { ReceiptContent(it, onDownload = {}) }
+                ModalBottomSheet({ receipt = null }, containerColor = MaterialTheme.colorScheme.surface) { ReceiptPanel(it) }
             }
         }
         if (editing) {
@@ -218,16 +235,16 @@ fun App(serverUrl: String = "") {
                 shown.profile,
                 onDismiss = { editing = false },
                 onSave = { profile ->
-                    editing = false
-                    // Shown at once; the server's answer comes with the next reading.
-                    home = shown.copy(profile = profile.copy(email = shown.profile.email), card = shown.card.with(profile))
-                    scope.launch {
-                        runCatching { api.updateProfile(profile.jobTitle, profile.company, profile.city, profile.sector) }
-                        resumed++
+                    // The card changes once the server took it; until then the sheet stays open.
+                    failure { api.updateProfile(profile.jobTitle, profile.company, profile.city, profile.sector) }.also { said ->
+                        if (said == null) {
+                            editing = false
+                            home = shown.copy(profile = profile.copy(email = shown.profile.email), card = shown.card.with(profile))
+                            // The email waits for the PIN, then for its code.
+                            val typed = profile.email?.trim().orEmpty()
+                            if (typed.isNotEmpty() && typed != shown.profile.email) newEmail = typed
+                        }
                     }
-                    // The email waits for the PIN, then for its code.
-                    val typed = profile.email?.trim().orEmpty()
-                    if (typed.isNotEmpty() && typed != shown.profile.email) newEmail = typed
                 },
                 lockOnOpen = lockOnOpen,
                 onLockOnOpen = {
@@ -271,12 +288,10 @@ fun App(serverUrl: String = "") {
             DeviceRequestSheet(
                 "Depuis ${request.label ?: "un nouveau téléphone"}",
                 onAccept = {
-                    scope.launch {
-                        runCatching { api.answerRequest(request.id, accept = true) }
-                            .onSuccess { signedOut("Ton compte est maintenant ouvert sur un autre téléphone.") }
-                    }
+                    failure { api.answerRequest(request.id, accept = true) }
+                        .also { said -> if (said == null) signedOut("Ton compte est maintenant ouvert sur un autre téléphone.") }
                 },
-                onRefuse = { scope.launch { runCatching { api.answerRequest(request.id, accept = false) } } },
+                onRefuse = { failure { api.answerRequest(request.id, accept = false) } },
                 onDismiss = { deviceRequest = null },
             )
         }
@@ -289,6 +304,9 @@ private suspend fun failure(call: suspend () -> Unit): String? = try {
     null
 } catch (error: ApiException) {
     if (error.reason == "PIN_WRONG") wrongPin(error.triesLeft ?: 0) else error.message
-} catch (error: Exception) {
-    error.message ?: "Pas de réseau. Réessaie dans un instant."
+} catch (error: CancellationException) {
+    throw error
+} catch (_: Exception) {
+    // The network's own words are not the member's: always the same sentence.
+    "Pas de réseau. Réessaie dans un instant."
 }

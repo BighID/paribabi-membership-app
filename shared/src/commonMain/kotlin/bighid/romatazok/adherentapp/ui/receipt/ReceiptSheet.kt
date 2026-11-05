@@ -28,6 +28,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import bighid.romatazok.adherentapp.ui.Loader
 import bighid.romatazok.adherentapp.ui.theme.Brand
 import org.jetbrains.compose.resources.painterResource
 
@@ -45,6 +46,8 @@ data class ReceiptView(
 @Composable
 fun ReceiptContent(
     receipt: ReceiptView,
+    downloading: Boolean,
+    downloadError: String?,
     onDownload: () -> Unit,
 ) {
     Column(Modifier.fillMaxWidth().padding(start = 24.dp, end = 24.dp, bottom = 28.dp), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -65,11 +68,21 @@ fun ReceiptContent(
         }
         Spacer(Modifier.height(18.dp))
         Button(
-            onDownload,
+            { if (!downloading) onDownload() },
             Modifier.fillMaxWidth().height(52.dp),
             shape = RoundedCornerShape(16.dp),
             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
-        ) { Text("Télécharger le reçu", fontWeight = FontWeight.SemiBold) }
+        ) {
+            if (downloading) {
+                Loader(size = 22.dp, onAccent = true)
+            } else {
+                Text("Télécharger le reçu", fontWeight = FontWeight.SemiBold)
+            }
+        }
+        if (downloadError != null) {
+            Spacer(Modifier.height(8.dp))
+            Text(downloadError, color = MaterialTheme.colorScheme.error, fontSize = 13.sp, textAlign = TextAlign.Center)
+        }
     }
 }
 

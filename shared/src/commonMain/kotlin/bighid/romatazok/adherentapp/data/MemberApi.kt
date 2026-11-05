@@ -12,7 +12,9 @@ import io.ktor.client.request.put
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsText
+import io.ktor.http.ContentDisposition
 import io.ktor.http.ContentType
+import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
@@ -328,6 +330,17 @@ class MemberApi(
     suspend fun events(): List<EventDto> = get("/api/member/events").ok()
 
     suspend fun receipt(paymentId: String): ReceiptDto = get("/api/member/receipts/$paymentId").ok()
+
+    /** The receipt's PDF and the name the server gives it; null when it could not be read. */
+    suspend fun receiptPdf(paymentId: String): Pair<String, ByteArray>? = runCatching {
+        val response = get("/api/member/receipts/$paymentId/pdf")
+        if (!response.status.isSuccess()) return@runCatching null
+        val name =
+            response.headers[HttpHeaders.ContentDisposition]
+                ?.let { ContentDisposition.parse(it).parameter(ContentDisposition.Parameters.FileName) }
+                ?.takeIf { it.isNotBlank() } ?: "recu.pdf"
+        name to response.body<ByteArray>()
+    }.getOrNull()
 
     suspend fun sectors(): List<String> = get("/api/member/sectors").ok()
 
