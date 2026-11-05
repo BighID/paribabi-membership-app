@@ -16,6 +16,12 @@ plugins {
     alias(libs.plugins.composeCompiler)
 }
 
+// Firebase reads its project from google-services.json, downloaded from the Firebase console. Without it, the app
+// builds and runs the same, without notifications.
+if (file("google-services.json").exists()) {
+    apply(plugin = libs.plugins.googleServices.get().pluginId)
+}
+
 kotlin {
     compilerOptions {
         jvmTarget = JvmTarget.JVM_11
@@ -27,6 +33,8 @@ dependencies {
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.biometric)
     implementation(libs.androidx.fragment)
+    implementation(project.dependencies.platform(libs.firebase.bom))
+    implementation(libs.firebase.messaging)
 
     implementation(libs.compose.uiToolingPreview)
     debugImplementation(libs.compose.uiTooling)

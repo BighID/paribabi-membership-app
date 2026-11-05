@@ -13,6 +13,7 @@ class MainActivity : FragmentActivity() {
         super.onCreate(savedInstanceState)
         // The safe and the network need the application's context before the first screen.
         AndroidContext.app = applicationContext
+        PushService.start(applicationContext)
 
         setContent {
             App(BuildConfig.SERVER_URL)

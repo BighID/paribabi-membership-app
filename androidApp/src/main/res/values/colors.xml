@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The orange of the card, around the bell of a notification. -->
+    <color name="notification">#FFEE6A2F</color>
+</resources>

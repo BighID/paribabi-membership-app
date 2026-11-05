@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "281829068063",
+    "project_id": "paribabi-79f1b",
+    "storage_bucket": "paribabi-79f1b.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:281829068063:android:3a7d40f9922a1b77c4b42a",
+        "android_client_info": {
+          "package_name": "bighid.paribabi.adherent"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAZmHSC_FhGRSdDTdVAnQw-UE2pI4rQtes"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

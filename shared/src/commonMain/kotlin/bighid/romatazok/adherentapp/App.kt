@@ -13,6 +13,7 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -25,8 +26,10 @@ import bighid.romatazok.adherentapp.data.ApiLoginService
 import bighid.romatazok.adherentapp.data.MemberApi
 import bighid.romatazok.adherentapp.data.MemberRepository
 import bighid.romatazok.adherentapp.data.PendingRequest
+import bighid.romatazok.adherentapp.data.Push
 import bighid.romatazok.adherentapp.data.SessionExpiredException
 import bighid.romatazok.adherentapp.data.platform
+import bighid.romatazok.adherentapp.ui.AskNotificationsOnce
 import bighid.romatazok.adherentapp.ui.Loading
 import bighid.romatazok.adherentapp.ui.Page
 import bighid.romatazok.adherentapp.ui.SystemBack
@@ -144,6 +147,12 @@ fun App(serverUrl: String = "") {
                 refreshing = false
             }
         }
+        // The phone's notification token, sent once signed in and each time Firebase renews it; signing out
+        // removes it on the server, so it goes again at the next sign-in.
+        val pushToken by Push.token.collectAsState()
+        LaunchedEffect(signedIn, pushToken) {
+            pushToken?.let { token -> runCatching { api.registerPush(token) } }
+        }
         LaunchedEffect(page, membership, membershipTry) {
             if (page == Page.Membership && membership == null) {
                 membershipFailed = false
@@ -162,6 +171,8 @@ fun App(serverUrl: String = "") {
             Loading(failed = loadFailed, onRetry = { resumed++ })
             return@ParibabiTheme
         }
+        // On the home, the member knows the app: the moment to ask for notifications, once.
+        AskNotificationsOnce()
         val openReceipt: (String) -> Unit = { id -> receipt = id }
         CompositionLocalProvider(LocalReceipts provides data, LocalPosters provides data::poster) {
             SystemBack(page != Page.Home) { page = Page.Home }

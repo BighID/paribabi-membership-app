@@ -244,6 +244,11 @@ private data class VerifyPinBody(
     val pin: String,
 )
 
+@Serializable
+private data class PushTokenBody(
+    val token: String,
+)
+
 /**
  * The calls of the members' API. The access token lives in memory, the refresh token in the phone's safe. A 401 on
  * a member's call renews the session once, then replays it.
@@ -320,6 +325,15 @@ class MemberApi(
     ): Unit = authorizedPost("/api/member/pin", ChangePinBody(current, pin)).ok()
 
     suspend fun verifyPin(pin: String): Unit = authorizedPost("/api/member/pin/verify", VerifyPinBody(pin)).ok()
+
+    /** The phone's notification token, kept by the server on the phone signed in. */
+    suspend fun registerPush(token: String): Unit = authorized { access ->
+        client.put("$baseUrl/api/member/push-token") {
+            bearerAuth(access)
+            contentType(ContentType.Application.Json)
+            setBody(PushTokenBody(token))
+        }
+    }.ok()
 
     suspend fun profile(): ProfileDto = get("/api/member/profile").ok()
 
