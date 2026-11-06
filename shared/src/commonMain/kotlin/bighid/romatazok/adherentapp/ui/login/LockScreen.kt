@@ -29,6 +29,8 @@ fun LockScreen(
     onUnlocked: () -> Unit,
     /** Forgotten or locked PIN: signed out, to choose a new one with "Code PIN oublié ?". */
     onSignOut: () -> Unit,
+    /** The session ended: no PIN opens it again, the connection says why. */
+    onSessionOver: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
     val biometric = rememberBiometricUnlock()
@@ -52,6 +54,7 @@ fun LockScreen(
                         is PinCheck.Wrong -> error = wrongPin(check.triesLeft)
                         PinCheck.Locked -> onSignOut()
                         PinCheck.TooEasy -> Unit
+                        PinCheck.SessionOver -> onSessionOver()
                         is PinCheck.Failed -> error = check.message
                     }
                 }

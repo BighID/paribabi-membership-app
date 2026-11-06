@@ -64,7 +64,7 @@ import kotlinx.coroutines.launch
 private const val PHONE_KEY = "phone"
 private const val LOCK_KEY = "lock_on_open"
 
-private const val TAKEN_OVER = "L'équipe a ouvert ton compte sur un autre téléphone, à ta demande."
+private const val TAKEN_OVER = "L'équipe a ouvert ton compte sur un autre téléphone."
 
 /**
  * No tabs: everything starts from the home, one page at most, and every page comes back to it. [serverUrl] empty:
@@ -172,7 +172,12 @@ fun App(serverUrl: String = "") {
         // Left in the background, the app asks the PIN again on return, when the member turned it on.
         LifecycleEventEffect(Lifecycle.Event.ON_STOP) { if (lockOnOpen) locked = true }
         if (locked) {
-            LockScreen(login, onUnlocked = { locked = false }, onSignOut = { signedOut(null) })
+            LockScreen(
+                login,
+                onUnlocked = { locked = false },
+                onSignOut = { signedOut(null) },
+                onSessionOver = { signedOut(if (api.takenOver) TAKEN_OVER else "Ta session a pris fin. Reconnecte-toi.") },
+            )
             return@ParibabiTheme
         }
         val shown = home

@@ -59,6 +59,9 @@ sealed interface PinCheck {
 
     data object TooEasy : PinCheck
 
+    /** The session ended meanwhile, or the team gave the account to another phone: back to the connection. */
+    data object SessionOver : PinCheck
+
     data class Failed(
         val message: String,
     ) : PinCheck

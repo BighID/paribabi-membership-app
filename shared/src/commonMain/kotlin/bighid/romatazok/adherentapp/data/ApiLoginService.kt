@@ -121,8 +121,8 @@ class ApiLoginService(
         }
     } catch (error: NetworkException) {
         PinCheck.Failed(error.message.orEmpty())
-    } catch (error: SessionExpiredException) {
-        PinCheck.Failed(error.message.orEmpty())
+    } catch (_: SessionExpiredException) {
+        PinCheck.SessionOver
     }
 
     private companion object {

@@ -178,6 +178,7 @@ fun LoginScreen(
             is PinCheck.Wrong -> error = wrongPin(check.triesLeft)
             PinCheck.Locked -> error = "Code bloqué. Touche « Code PIN oublié ? »."
             PinCheck.TooEasy -> error = "Trop facile. Choisis-en un autre."
+            PinCheck.SessionOver -> error = "Ta session a pris fin. Reconnecte-toi."
             is PinCheck.Failed -> error = check.message
         }
     }

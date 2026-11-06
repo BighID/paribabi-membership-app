@@ -101,7 +101,7 @@ fun ChangePinSheet(
                                             step = Change.NEW
                                         }
                                         is PinCheck.Wrong -> error = wrongPin(check.triesLeft)
-                                        PinCheck.Locked -> onLocked()
+                                        PinCheck.Locked, PinCheck.SessionOver -> onLocked()
                                         PinCheck.TooEasy -> Unit
                                         is PinCheck.Failed -> error = check.message
                                     }
@@ -124,7 +124,7 @@ fun ChangePinSheet(
                                     when (check) {
                                         PinCheck.SignedIn, PinCheck.OtherPhone -> step = Change.DONE
                                         PinCheck.TooEasy -> error = "Trop facile. Choisis-en un autre."
-                                        PinCheck.Locked -> onLocked()
+                                        PinCheck.Locked, PinCheck.SessionOver -> onLocked()
                                         is PinCheck.Wrong -> {
                                             newPin.restart()
                                             step = Change.CURRENT
