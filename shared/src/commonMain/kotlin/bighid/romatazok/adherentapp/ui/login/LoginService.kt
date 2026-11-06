@@ -111,9 +111,10 @@ interface LoginService {
 
     /**
      * From the phone signed out by a change the team validated: the new phone is signed out, the QR replaced, the team
-     * told, and phone changes stay blocked until the team checks.
+     * told, and phone changes stay blocked until the team checks. False when it no longer can: already done, or
+     * more than 7 days ago.
      */
-    suspend fun reportNotMe()
+    suspend fun reportNotMe(): Boolean
 }
 
 /** 0000, 1111, 1234, 4321 and the like: the same digit four times, or a run up or down. */

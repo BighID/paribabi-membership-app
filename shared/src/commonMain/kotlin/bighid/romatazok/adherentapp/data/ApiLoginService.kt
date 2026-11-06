@@ -108,8 +108,7 @@ class ApiLoginService(
         PinCheck.SignedIn
     }
 
-    /** With the team's validation, at step 4: nothing to send yet. */
-    override suspend fun reportNotMe() = Unit
+    override suspend fun reportNotMe(): Boolean = runCatching { api.reportNotMe() }.getOrDefault(false)
 
     private suspend fun checked(call: suspend () -> PinCheck): PinCheck = try {
         call()

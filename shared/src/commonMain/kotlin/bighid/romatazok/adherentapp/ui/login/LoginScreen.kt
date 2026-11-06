@@ -84,7 +84,7 @@ import org.jetbrains.compose.resources.painterResource
 
 private enum class Step { PHONE, CODE, PIN, CREATE_PIN, CONFIRM }
 
-private enum class Takeover { ASKING, REPORTING, REPORTED }
+private enum class Takeover { ASKING, REPORTING, REPORTED, FAILED }
 
 /**
  * One screen before the home: the band with the card stays, the steps glide under it. On its usual phone: the number,
@@ -211,8 +211,7 @@ fun LoginScreen(
                             onNotMe = {
                                 takeover = Takeover.REPORTING
                                 scope.launch {
-                                    service.reportNotMe()
-                                    takeover = Takeover.REPORTED
+                                    takeover = if (service.reportNotMe()) Takeover.REPORTED else Takeover.FAILED
                                 }
                             },
                             country,
@@ -336,6 +335,10 @@ private fun PhoneStep(
             Spacer(Modifier.height(14.dp))
             Notice("C'est fait : l'autre téléphone est déconnecté, ton QR est changé.")
         }
+        Takeover.FAILED -> {
+            Spacer(Modifier.height(14.dp))
+            Notice("Signalement impossible : contacte l'équipe PariBabi.")
+        }
         else -> {
             Spacer(Modifier.height(14.dp))
             Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(CREAM).padding(14.dp)) {
@@ -350,7 +353,11 @@ private fun PhoneStep(
                         .clickable(enabled = takeover == Takeover.ASKING, onClick = onNotMe),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text(if (takeover == Takeover.REPORTING) "Envoi…" else "Ce n'était pas moi", color = ORANGE, fontWeight = FontWeight.SemiBold)
+                    if (takeover == Takeover.REPORTING) {
+                        Loader(size = 20.dp)
+                    } else {
+                        Text("Ce n'était pas moi", color = ORANGE, fontWeight = FontWeight.SemiBold)
+                    }
                 }
             }
         }

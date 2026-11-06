@@ -64,6 +64,8 @@ import kotlinx.coroutines.launch
 private const val PHONE_KEY = "phone"
 private const val LOCK_KEY = "lock_on_open"
 
+private const val TAKEN_OVER = "L'équipe a ouvert ton compte sur un autre téléphone, à ta demande."
+
 /**
  * No tabs: everything starts from the home, one page at most, and every page comes back to it. [serverUrl] empty:
  * the development machine, as the emulator or the simulator sees it.
@@ -122,11 +124,15 @@ fun App(serverUrl: String = "") {
         if (signedIn == null) {
             // A notification for the member who left: after the connection, the home.
             LaunchedEffect(Unit) { Push.opened() }
-            LoginScreen(login, notice) {
+            // Signed out by a change the team validated: the notice comes with "Ce n'était pas moi", for 7 days.
+            val takenOver = api.takenOver
+            LoginScreen(login, notice ?: if (takenOver) TAKEN_OVER else null, takenOver) {
                 secure.put(PHONE_KEY, it)
                 phone = it
                 notice = null
                 page = Page.Home
+                // Back in: the report is no longer offered.
+                api.dropTakeover()
             }
             return@ParibabiTheme
         }
@@ -142,7 +148,7 @@ fun App(serverUrl: String = "") {
                 membership = null
                 deviceRequest = api.pendingRequests().firstOrNull()
             } catch (_: SessionExpiredException) {
-                signedOut("Ta session a pris fin. Reconnecte-toi.")
+                signedOut(if (api.takenOver) TAKEN_OVER else "Ta session a pris fin. Reconnecte-toi.")
             } catch (_: Exception) {
                 // No network: what was read stays; the first time, the home says so.
                 loadFailed = true

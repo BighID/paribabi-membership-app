@@ -440,12 +440,32 @@ class MemberApi(
         return call { request(accessToken!!) }
     }
 
+    /**
+     * Signed out because the team validated another phone: this one may still say it was not its member, for 7 days,
+     * with the token it kept for that alone.
+     */
+    val takenOver: Boolean get() = secure.get(TAKEOVER_KEY) != null
+
+    /** "Ce n'était pas moi": true once done; the kept token is dropped either way. */
+    suspend fun reportNotMe(): Boolean {
+        val token = secure.get(TAKEOVER_KEY) ?: return false
+        val response = call { client.post("$baseUrl/api/member/auth/not-me") { contentType(ContentType.Application.Json); setBody(RefreshBody(token)) } }
+        if (response.status.isSuccess() || response.status == HttpStatusCode.NotFound) secure.remove(TAKEOVER_KEY)
+        return response.status.isSuccess()
+    }
+
+    /** A notice read: the report is no longer offered. */
+    fun dropTakeover() = secure.remove(TAKEOVER_KEY)
+
     /** One renewal at a time: the server treats two uses of one refresh token as theft. */
     private suspend fun refresh(): Boolean = refreshLock.withLock {
         val token = secure.get(REFRESH_KEY) ?: return false
         val response = call { client.post("$baseUrl/api/member/auth/refresh") { contentType(ContentType.Application.Json); setBody(RefreshBody(token)) } }
         if (!response.status.isSuccess()) {
-            if (response.status == HttpStatusCode.Unauthorized || response.status == HttpStatusCode.Forbidden) forget()
+            if (response.status == HttpStatusCode.Unauthorized || response.status == HttpStatusCode.Forbidden) {
+                if (problem(response)?.reason == "TAKEN_OVER") secure.put(TAKEOVER_KEY, token)
+                forget()
+            }
             return false
         }
         keep(response.body<Tokens>())
@@ -473,5 +493,6 @@ class MemberApi(
 
     private companion object {
         const val REFRESH_KEY = "refresh_token"
+        const val TAKEOVER_KEY = "takeover_token"
     }
 }
