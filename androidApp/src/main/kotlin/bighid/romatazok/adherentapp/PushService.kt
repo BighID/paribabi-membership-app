@@ -27,7 +27,7 @@ class PushService : FirebaseMessagingService() {
 
     override fun onMessageReceived(message: RemoteMessage) {
         val notification = message.notification ?: return
-        show(this, notification.title, notification.body)
+        show(this, notification.title, notification.body, message.data)
     }
 
     companion object {
@@ -44,14 +44,13 @@ class PushService : FirebaseMessagingService() {
             context: Context,
             title: String?,
             body: String?,
+            data: Map<String, String>,
         ) {
-            val open =
-                PendingIntent.getActivity(
-                    context,
-                    0,
-                    Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
-                    PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
-                )
+            // The same extras as a notification shown by Android: the activity reads them the same way.
+            val intent = Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            data.forEach { (key, value) -> intent.putExtra(key, value) }
+            val id = System.currentTimeMillis().toInt()
+            val open = PendingIntent.getActivity(context, id, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
             val built =
                 NotificationCompat
                     .Builder(context, CHANNEL)
@@ -64,7 +63,7 @@ class PushService : FirebaseMessagingService() {
                     .setContentIntent(open)
                     .build()
             // Refused by the member: nothing shown, nothing asked again.
-            runCatching { NotificationManagerCompat.from(context).notify(System.currentTimeMillis().toInt(), built) }
+            runCatching { NotificationManagerCompat.from(context).notify(id, built) }
         }
     }
 }

@@ -23,6 +23,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import bighid.romatazok.adherentapp.data.ApiException
 import bighid.romatazok.adherentapp.data.ApiLoginService
+import bighid.romatazok.adherentapp.data.DeepLink
 import bighid.romatazok.adherentapp.data.MemberApi
 import bighid.romatazok.adherentapp.data.MemberRepository
 import bighid.romatazok.adherentapp.data.PendingRequest
@@ -119,6 +120,8 @@ fun App(serverUrl: String = "") {
         }
         val signedIn = phone
         if (signedIn == null) {
+            // A notification for the member who left: after the connection, the home.
+            LaunchedEffect(Unit) { Push.opened() }
             LoginScreen(login, notice) {
                 secure.put(PHONE_KEY, it)
                 phone = it
@@ -173,6 +176,26 @@ fun App(serverUrl: String = "") {
         }
         // On the home, the member knows the app: the moment to ask for notifications, once.
         AskNotificationsOnce()
+        // A tapped notification: shown here only, once signed in, past the PIN, with the home read.
+        val link by Push.opening.collectAsState()
+        LaunchedEffect(link) {
+            when (val target = link) {
+                is DeepLink.Receipt -> {
+                    page = Page.Home
+                    event = null
+                    message = null
+                    receipt = target.paymentId
+                }
+                DeepLink.Membership -> {
+                    receipt = null
+                    event = null
+                    message = null
+                    page = Page.Membership
+                }
+                null -> return@LaunchedEffect
+            }
+            Push.opened()
+        }
         val openReceipt: (String) -> Unit = { id -> receipt = id }
         CompositionLocalProvider(LocalReceipts provides data, LocalPosters provides data::poster) {
             SystemBack(page != Page.Home) { page = Page.Home }
