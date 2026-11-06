@@ -73,7 +73,7 @@ fun ProfileSheet(
     profile: Profile,
     onDismiss: () -> Unit,
     /** Sent to the server; null once it accepted, otherwise what to tell the member, the sheet staying open. */
-    onSave: suspend (Profile) -> String?,
+    onSave: suspend (Profile, ByteArray?) -> String?,
     /** "Demander mon code PIN à l'ouverture", off unless the member turns it on. */
     lockOnOpen: Boolean,
     onLockOnOpen: (Boolean) -> Unit,
@@ -84,7 +84,16 @@ fun ProfileSheet(
     var saving by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
-    val picker = rememberPhotoPicker { bytes -> runCatching { bytes.decodeToImageBitmap() }.onSuccess { draft = draft.copy(photo = it) } }
+    // The file as it came from the gallery, sent with "Enregistrer".
+    var newPhoto by remember { mutableStateOf<ByteArray?>(null) }
+    val picker =
+        rememberPhotoPicker { bytes ->
+            runCatching { bytes.decodeToImageBitmap() }.onSuccess {
+                draft = draft.copy(photo = it)
+                newPhoto = bytes
+                error = null
+            }
+        }
     ModalBottomSheet(onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), containerColor = MaterialTheme.colorScheme.surface) {
         Column(
             Modifier
@@ -117,7 +126,7 @@ fun ProfileSheet(
                         saving = true
                         error = null
                         scope.launch {
-                            error = onSave(draft.trimmed())
+                            error = onSave(draft.trimmed(), newPhoto)
                             saving = false
                         }
                     }

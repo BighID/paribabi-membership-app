@@ -279,12 +279,20 @@ fun App(serverUrl: String = "") {
             ProfileSheet(
                 shown.profile,
                 onDismiss = { editing = false },
-                onSave = { profile ->
+                onSave = { profile, photo ->
                     // The card changes once the server took it; until then the sheet stays open.
-                    failure { api.updateProfile(profile.jobTitle, profile.company, profile.city, profile.sector) }.also { said ->
+                    failure {
+                        photo?.let { api.uploadPhoto(it) }
+                        api.updateProfile(profile.jobTitle, profile.company, profile.city, profile.sector)
+                    }.also { said ->
                         if (said == null) {
                             editing = false
                             home = shown.copy(profile = profile.copy(email = shown.profile.email), card = shown.card.with(profile))
+                            // Read again from the server, turned and cut as it will stay.
+                            if (photo != null) {
+                                data.forgetPhoto()
+                                resumed++
+                            }
                             // The email waits for the PIN, then for its code.
                             val typed = profile.email?.trim().orEmpty()
                             if (typed.isNotEmpty() && typed != shown.profile.email) newEmail = typed

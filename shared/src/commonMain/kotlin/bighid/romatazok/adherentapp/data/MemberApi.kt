@@ -6,6 +6,8 @@ import io.ktor.client.engine.HttpClientEngine
 import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.request.bearerAuth
+import io.ktor.client.request.forms.MultiPartFormDataContent
+import io.ktor.client.request.forms.formData
 import io.ktor.client.request.get
 import io.ktor.client.request.post
 import io.ktor.client.request.put
@@ -14,6 +16,7 @@ import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentDisposition
 import io.ktor.http.ContentType
+import io.ktor.http.Headers
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
@@ -97,6 +100,7 @@ data class ProfileDto(
     /** `ACTIVE` or `EXPIRED`. */
     val status: String,
     val seasonName: String? = null,
+    val hasPhoto: Boolean = false,
 )
 
 @Serializable
@@ -363,6 +367,33 @@ class MemberApi(
         val response = get("/api/member/events/$eventId/poster")
         if (response.status.isSuccess()) response.body<ByteArray>() else null
     }.getOrNull()
+
+    /** The member's own photo, as the server prepared it; null when it could not be read. */
+    suspend fun photo(): ByteArray? = runCatching {
+        val response = get("/api/member/photo")
+        if (response.status.isSuccess()) response.body<ByteArray>() else null
+    }.getOrNull()
+
+    /** The file as it left the gallery: the server cuts it and keeps what it says of itself apart. */
+    suspend fun uploadPhoto(content: ByteArray): Unit = authorized { token ->
+        client.put("$baseUrl/api/member/photo") {
+            bearerAuth(token)
+            setBody(
+                MultiPartFormDataContent(
+                    formData {
+                        append(
+                            "photo",
+                            content,
+                            Headers.build {
+                                append(HttpHeaders.ContentType, "image/jpeg")
+                                append(HttpHeaders.ContentDisposition, "filename=\"photo.jpg\"")
+                            },
+                        )
+                    },
+                ),
+            )
+        }
+    }.ok()
 
     suspend fun updateProfile(
         jobTitle: String?,

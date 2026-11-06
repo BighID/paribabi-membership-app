@@ -25,11 +25,21 @@ class MemberRepository(
 ) : ReceiptSource {
     private val posters = mutableMapOf<String, ImageBitmap?>()
 
+    /** Read once: the app itself is what changes it. */
+    private var photo: ImageBitmap? = null
+
+    /** A new photo was sent: the next reading takes it from the server, turned and cut as it will stay. */
+    fun forgetPhoto() {
+        photo = null
+    }
+
     /** The home, the activity and the events, read together. */
     suspend fun home(): Triple<HomeState, List<ActivityRow>, List<UpcomingEvent>> {
         val profile = api.profile()
         val activity = api.activity().map(::row)
         val events = api.events()
+        val shown = if (profile.hasPhoto) photo ?: api.photo()?.let { runCatching { it.decodeToImageBitmap() }.getOrNull() } else null
+        photo = shown
         val home =
             HomeState(
                 firstName = profile.firstName.orEmpty(),
@@ -41,7 +51,7 @@ class MemberRepository(
                     } ?: MemberStatus.AwaitingPayment,
                 nextEvent = events.firstOrNull()?.let(::line),
                 activity = activity.take(HOME_ACTIVITY),
-                profile = Profile(profile.fullName, phone(profile.phone), profile.email, profile.jobTitle, profile.company, profile.city, profile.sector),
+                profile = Profile(profile.fullName, phone(profile.phone), profile.email, profile.jobTitle, profile.company, profile.city, profile.sector, shown),
                 card =
                     CardData(
                         fullName = profile.fullName,
@@ -53,6 +63,7 @@ class MemberRepository(
                         city = profile.city,
                         sector = profile.sector,
                         qrContent = profile.qr.orEmpty(),
+                        photo = shown,
                     ),
             )
         return Triple(home, activity, events.map(::event))
