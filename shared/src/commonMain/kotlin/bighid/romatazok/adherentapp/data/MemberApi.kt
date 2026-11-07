@@ -4,6 +4,7 @@ import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.engine.HttpClientEngine
 import io.ktor.client.plugins.HttpTimeout
+import io.ktor.client.plugins.timeout
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.request.bearerAuth
 import io.ktor.client.request.forms.MultiPartFormDataContent
@@ -378,6 +379,8 @@ class MemberApi(
     suspend fun uploadPhoto(content: ByteArray): Unit = authorized { token ->
         client.put("$baseUrl/api/member/photo") {
             bearerAuth(token)
+            // Up to 10 MB on a slow network: more time than a reading.
+            timeout { requestTimeoutMillis = UPLOAD_TIMEOUT }
             setBody(
                 MultiPartFormDataContent(
                     formData {
@@ -525,5 +528,6 @@ class MemberApi(
     private companion object {
         const val REFRESH_KEY = "refresh_token"
         const val TAKEOVER_KEY = "takeover_token"
+        const val UPLOAD_TIMEOUT = 120_000L
     }
 }
