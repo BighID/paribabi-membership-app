@@ -19,6 +19,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import bighid.romatazok.adherentapp.data.ApiException
@@ -81,6 +82,7 @@ fun App(serverUrl: String = "") {
         val login = remember { ApiLoginService(api, secure, platform.deviceModel) }
         val data = remember { MemberRepository(api) }
         val scope = rememberCoroutineScope()
+        val uri = LocalUriHandler.current
         var page by remember { mutableStateOf<Page>(Page.Home) }
         var membershipTab by remember { mutableStateOf(MembershipTab.SEASON) }
         // The payment whose receipt is open: the sheet opens at once and reads it.
@@ -265,7 +267,13 @@ fun App(serverUrl: String = "") {
                                 membershipTab,
                                 onTab = { membershipTab = it },
                                 onBack = back,
-                                onRenew = {},
+                                // The payment page in the browser; back in the app, the next reading shows the new membership.
+                                onRenew = {
+                                    failure {
+                                        val link = api.renewal()
+                                        uri.openUri(link.url)
+                                    }
+                                },
                                 actions =
                                     ProfileActions(
                                         onSave = { profile ->

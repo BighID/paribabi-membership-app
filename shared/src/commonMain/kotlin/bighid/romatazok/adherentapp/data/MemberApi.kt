@@ -250,6 +250,12 @@ private data class VerifyPinBody(
 )
 
 @Serializable
+data class RenewalLink(
+    val url: String,
+    val amount: Long,
+)
+
+@Serializable
 private data class PushTokenBody(
     val token: String,
 )
@@ -362,6 +368,9 @@ class MemberApi(
     }.getOrNull()
 
     suspend fun sectors(): List<String> = get("/api/member/sectors").ok()
+
+    /** The payment page of my renewal, opened in the browser. */
+    suspend fun renewal(): RenewalLink = authorizedPost("/api/member/renewal", emptyMap<String, String>()).ok()
 
     /** The poster's image; null when the event has none, or the network failed. */
     suspend fun poster(eventId: String): ByteArray? = runCatching {

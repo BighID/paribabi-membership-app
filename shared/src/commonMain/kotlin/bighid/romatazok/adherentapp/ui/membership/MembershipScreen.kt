@@ -107,7 +107,8 @@ fun MembershipScreen(
     tab: MembershipTab,
     onTab: (MembershipTab) -> Unit,
     onBack: () -> Unit,
-    onRenew: () -> Unit,
+    /** Opens the payment page; null once it is open, otherwise what to tell. */
+    onRenew: suspend () -> String?,
     actions: ProfileActions,
 ) {
     val scope = rememberCoroutineScope()
@@ -143,8 +144,11 @@ private fun Hero(
     sending: Boolean,
     photoError: String?,
     onPhoto: (() -> Unit)?,
-    onRenew: () -> Unit,
+    onRenew: suspend () -> String?,
 ) {
+    val scope = rememberCoroutineScope()
+    var renewing by remember { mutableStateOf(false) }
+    var renewError by remember { mutableStateOf<String?>(null) }
     Column(Modifier.fillMaxWidth().padding(start = SIDE, end = SIDE, bottom = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         Photo(home.profile.photo, sending, onPhoto)
         Spacer(Modifier.height(10.dp))
@@ -171,13 +175,26 @@ private fun Hero(
         }
         if (home.status is MemberStatus.Expired && tab == MembershipTab.SEASON) {
             Spacer(Modifier.height(12.dp))
-            Text(
-                "Renouveler",
-                Modifier.clip(RoundedCornerShape(14.dp)).background(ORANGE).clickable(onClick = onRenew).padding(horizontal = 26.dp, vertical = 11.dp),
-                color = Color.White,
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 15.sp,
-            )
+            Box(
+                Modifier
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(ORANGE)
+                    .clickable(enabled = !renewing) {
+                        renewing = true
+                        renewError = null
+                        scope.launch {
+                            renewError = onRenew()
+                            renewing = false
+                        }
+                    }.padding(horizontal = 26.dp, vertical = 11.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                if (renewing) Loader(size = 20.dp, onAccent = true) else Text("Renouveler", color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+            }
+            renewError?.let {
+                Spacer(Modifier.height(6.dp))
+                Text(it, color = MaterialTheme.colorScheme.error, fontSize = 13.sp, textAlign = TextAlign.Center)
+            }
         }
     }
 }
