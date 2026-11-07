@@ -157,7 +157,7 @@ private fun CodeStep(
                                 .weight(1f)
                                 .height(56.dp)
                                 .clip(RoundedCornerShape(14.dp))
-                                .background(MaterialTheme.colorScheme.surface)
+                                .background(MaterialTheme.colorScheme.surfaceVariant)
                                 .border(2.dp, if (error != null) Brand.Orange else if (i == code.length) NAVY_LIGHT else Color.Transparent, RoundedCornerShape(14.dp)),
                             contentAlignment = Alignment.Center,
                         ) {

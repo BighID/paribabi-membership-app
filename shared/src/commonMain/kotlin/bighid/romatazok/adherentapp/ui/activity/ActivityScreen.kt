@@ -3,25 +3,20 @@ package bighid.romatazok.adherentapp.ui.activity
 import adherentapp.shared.generated.resources.Res
 import adherentapp.shared.generated.resources.ic_close
 import adherentapp.shared.generated.resources.ic_search
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -46,7 +41,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
@@ -55,7 +49,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import bighid.romatazok.adherentapp.ui.PageBar
-import bighid.romatazok.adherentapp.ui.events.NAVY_LIGHT
+import bighid.romatazok.adherentapp.ui.SoftTabs
 import bighid.romatazok.adherentapp.ui.home.ActivityLine
 import bighid.romatazok.adherentapp.ui.home.ActivityRow
 import bighid.romatazok.adherentapp.ui.theme.Brand
@@ -90,10 +84,15 @@ fun ActivityScreen(
             query = it
             shown = PAGE
         }
-        Segmented(filter, Modifier.padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 12.dp)) {
-            filter = it
-            shown = PAGE
-        }
+        SoftTabs(
+            ActivityFilter.entries.map { it.label },
+            filter.ordinal,
+            {
+                filter = ActivityFilter.entries[it]
+                shown = PAGE
+            },
+            Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 8.dp),
+        )
         LazyColumn(Modifier.fillMaxSize(), state = list, contentPadding = PaddingValues(bottom = bottom + 16.dp)) {
             if (found.isEmpty()) {
                 item { Empty(rows.isEmpty(), query) { query = "" } }
@@ -114,7 +113,7 @@ private fun SearchField(
 ) {
     val keyboard = LocalSoftwareKeyboardController.current
     Row(
-        modifier.fillMaxWidth().height(48.dp).clip(RoundedCornerShape(50)).background(MaterialTheme.colorScheme.surface).padding(start = 16.dp, end = 6.dp),
+        modifier.fillMaxWidth().height(48.dp).clip(RoundedCornerShape(50)).background(MaterialTheme.colorScheme.surfaceVariant).padding(start = 16.dp, end = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(painterResource(Res.drawable.ic_search), null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -141,29 +140,6 @@ private fun SearchField(
     }
 }
 
-/** The same soft segmented filter as the membership, the selection gliding from one choice to the other. */
-@Composable
-private fun Segmented(
-    filter: ActivityFilter,
-    modifier: Modifier,
-    onFilter: (ActivityFilter) -> Unit,
-) {
-    val choices = ActivityFilter.entries
-    BoxWithConstraints(modifier.fillMaxWidth().height(42.dp).clip(RoundedCornerShape(50)).background(MaterialTheme.colorScheme.surface).padding(4.dp)) {
-        val width = maxWidth / choices.size
-        val x by animateDpAsState(width * filter.ordinal)
-        Box(Modifier.offset(x = x).width(width).fillMaxHeight().clip(RoundedCornerShape(50)).background(NAVY_LIGHT))
-        Row(Modifier.fillMaxSize()) {
-            choices.forEach { choice ->
-                val color by animateColorAsState(if (choice == filter) Color.White else MaterialTheme.colorScheme.onSurfaceVariant)
-                Box(Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(50)).clickable { onFilter(choice) }, contentAlignment = Alignment.Center) {
-                    Text(choice.label, color = color, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
-                }
-            }
-        }
-    }
-}
-
 @Composable
 private fun Empty(
     nothingYet: Boolean,
@@ -181,7 +157,7 @@ private fun Empty(
         if (!nothingYet && query.isNotBlank()) {
             Text(
                 "Effacer la recherche",
-                Modifier.clip(RoundedCornerShape(50)).background(MaterialTheme.colorScheme.surface).clickable(onClick = onClear).padding(horizontal = 18.dp, vertical = 10.dp),
+                Modifier.clip(RoundedCornerShape(50)).background(MaterialTheme.colorScheme.surfaceVariant).clickable(onClick = onClear).padding(horizontal = 18.dp, vertical = 10.dp),
                 color = MaterialTheme.colorScheme.onSurface,
                 fontWeight = FontWeight.SemiBold,
                 fontSize = 14.sp,

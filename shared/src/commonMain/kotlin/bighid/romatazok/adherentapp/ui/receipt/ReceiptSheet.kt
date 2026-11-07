@@ -55,11 +55,11 @@ fun ReceiptContent(
             Icon(painterResource(Res.drawable.ic_check), null, Modifier.size(26.dp), tint = Brand.Green)
         }
         Spacer(Modifier.height(12.dp))
-        Text(receipt.amount, fontSize = 30.sp, fontWeight = FontWeight.Bold)
+        Text(receipt.amount, fontSize = 28.sp, fontWeight = FontWeight.SemiBold)
         Text(receipt.label, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center, fontSize = 15.sp)
         Spacer(Modifier.height(20.dp))
         Column(
-            Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(MaterialTheme.colorScheme.background).padding(16.dp),
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(MaterialTheme.colorScheme.surfaceVariant).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             Line("Reçu", receipt.number)

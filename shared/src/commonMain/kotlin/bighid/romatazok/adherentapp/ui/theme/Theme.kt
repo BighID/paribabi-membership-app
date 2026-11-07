@@ -39,21 +39,22 @@ object Brand {
 }
 
 private val Light =
+    // The soft style: white everywhere, one pale grey for what stands out, navy for what acts.
     lightColorScheme(
-        primary = Brand.Blue,
+        primary = Color(0xFF1D3770),
         onPrimary = Color.White,
         primaryContainer = Brand.BlueSoft,
         onPrimaryContainer = Brand.BlueDark,
         secondary = Brand.Orange,
         onSecondary = Color.White,
         secondaryContainer = Brand.OrangeSoft,
-        background = Brand.Paper,
-        onBackground = Brand.Ink,
+        background = Color.White,
+        onBackground = Color(0xFF1B2333),
         surface = Color.White,
-        onSurface = Brand.Ink,
-        surfaceVariant = Color(0xFFF2F4F7),
-        onSurfaceVariant = Brand.Grey,
-        outline = Brand.Line,
+        onSurface = Color(0xFF1B2333),
+        surfaceVariant = Color(0xFFF5F6F9),
+        onSurfaceVariant = Color(0xFF737B8C),
+        outline = Color(0xFFEEF0F4),
     )
 
 private val Dark =

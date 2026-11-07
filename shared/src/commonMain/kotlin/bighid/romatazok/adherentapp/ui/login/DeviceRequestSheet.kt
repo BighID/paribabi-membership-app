@@ -124,7 +124,7 @@ private fun SheetButton(
 ) {
     val ink = if (outlined) MaterialTheme.colorScheme.onSurface else Color.White
     Box(
-        modifier.height(52.dp).clip(RoundedCornerShape(14.dp)).background(if (outlined) MaterialTheme.colorScheme.background else color).clickable(onClick = onClick),
+        modifier.height(52.dp).clip(RoundedCornerShape(14.dp)).background(if (outlined) MaterialTheme.colorScheme.surfaceVariant else color).clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         if (busy) {

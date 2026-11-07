@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -55,8 +54,8 @@ fun EventsScreen(
             }
         } else {
             LazyColumn(
-                contentPadding = PaddingValues(start = 10.dp, end = 10.dp, top = 4.dp, bottom = bottom + 24.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
+                contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 4.dp, bottom = bottom + 24.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
                 items(events, key = { it.id }) { event -> EventCard(event) { onOpen(event) } }
             }
@@ -64,42 +63,27 @@ fun EventsScreen(
     }
 }
 
-/** The poster, then the date like a calendar sheet beside what, when, where and my price. */
+/** The poster, then what, when, where and my price, on the page itself. */
 @Composable
 private fun EventCard(
     event: UpcomingEvent,
     onClick: () -> Unit,
 ) {
-    Column(
-        Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(22.dp))
-            .background(MaterialTheme.colorScheme.surface)
-            .clickable(onClick = onClick),
-    ) {
+    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).clickable(onClick = onClick)) {
         Box {
-            Poster(event, Modifier.fillMaxWidth().height(150.dp))
+            Poster(event, Modifier.fillMaxWidth().height(150.dp).clip(RoundedCornerShape(22.dp)))
             Row(Modifier.align(Alignment.TopStart).padding(12.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 if (event.membersOnly) PosterTag("Réservé aux adhérents")
                 if (event.ticket != null) PosterTag("Billet acheté")
             }
         }
-        Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-            Column(
-                Modifier.size(52.dp).clip(RoundedCornerShape(16.dp)).background(CREAM),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center,
-            ) {
-                Text(event.day, color = NAVY, fontSize = 19.sp, fontWeight = FontWeight.Bold, lineHeight = 21.sp)
-                Text(event.month, color = ORANGE, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, lineHeight = 14.sp)
-            }
-            Spacer(Modifier.width(14.dp))
+        Row(Modifier.padding(start = 4.dp, end = 4.dp, top = 10.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text(event.name, fontWeight = FontWeight.SemiBold, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(listOf(event.time, event.venue).filter { it.isNotBlank() }.joinToString(" · "), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(listOf("${event.day} ${event.month}", event.time, event.venue).filter { it.isNotBlank() }.joinToString(" · "), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             Spacer(Modifier.width(10.dp))
-            Text(event.price, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurface)
+            Text(event.price, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, color = MaterialTheme.colorScheme.onSurface)
         }
     }
 }

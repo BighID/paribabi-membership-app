@@ -367,7 +367,7 @@ private fun PhoneStep(
     Row(Modifier.fillMaxWidth().height(58.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         Box {
             Row(
-                Modifier.height(58.dp).clip(RoundedCornerShape(16.dp)).background(MaterialTheme.colorScheme.surface).clickable { choosing = true }.padding(horizontal = 14.dp),
+                Modifier.height(58.dp).clip(RoundedCornerShape(16.dp)).background(MaterialTheme.colorScheme.surfaceVariant).clickable { choosing = true }.padding(horizontal = 14.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(country.code, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
@@ -397,7 +397,7 @@ private fun PhoneStep(
             visualTransformation = PairsTransformation,
             decorationBox = { field ->
                 Box(
-                    Modifier.fillMaxSize().clip(RoundedCornerShape(16.dp)).background(MaterialTheme.colorScheme.surface).padding(horizontal = 16.dp),
+                    Modifier.fillMaxSize().clip(RoundedCornerShape(16.dp)).background(MaterialTheme.colorScheme.surfaceVariant).padding(horizontal = 16.dp),
                     contentAlignment = Alignment.CenterStart,
                 ) {
                     if (number.isEmpty()) Text("07 00 00 00 00", color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f), fontSize = 18.sp)
@@ -487,7 +487,7 @@ private fun CodeStep(
                             .weight(1f)
                             .height(58.dp)
                             .clip(RoundedCornerShape(14.dp))
-                            .background(MaterialTheme.colorScheme.surface)
+                            .background(MaterialTheme.colorScheme.surfaceVariant)
                             .border(if (current || error != null) 2.dp else 0.dp, if (error != null) ORANGE else if (current) NAVY_LIGHT else Color.Transparent, RoundedCornerShape(14.dp)),
                         contentAlignment = Alignment.Center,
                     ) {

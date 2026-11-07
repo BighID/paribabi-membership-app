@@ -4,7 +4,6 @@ import adherentapp.shared.generated.resources.Res
 import adherentapp.shared.generated.resources.ic_calendar
 import adherentapp.shared.generated.resources.ic_check
 import adherentapp.shared.generated.resources.ic_map
-import adherentapp.shared.generated.resources.ic_payments
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -102,7 +101,7 @@ fun EventSheet(
             }
             event.practicalInfo?.let {
                 Spacer(Modifier.height(14.dp))
-                Label("INFORMATIONS PRATIQUES")
+                Label("Informations pratiques")
                 Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp, lineHeight = 20.sp)
             }
         }
@@ -118,31 +117,30 @@ private fun Mine(
     onRenew: () -> Unit,
 ) {
     val ticket = event.ticket
-    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(CREAM).padding(16.dp)) {
+    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(MaterialTheme.colorScheme.surfaceVariant).padding(16.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Label("MON PRIX")
-                Text(event.price, color = NAVY, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                Label("Mon prix")
+                Text(event.price, fontSize = 19.sp, fontWeight = FontWeight.SemiBold)
             }
             if (ticket != null) Tag("Billet acheté", GREEN)
         }
         when {
             ticket != null -> {
-                Spacer(Modifier.height(12.dp))
-                Text("À l'entrée, montre ta carte.", color = NAVY, fontSize = 14.sp)
-                Spacer(Modifier.height(12.dp))
-                Row(
-                    Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(NAVY_LIGHT).clickable { onReceipt(ticket) }.padding(horizontal = 16.dp, vertical = 13.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Icon(painterResource(Res.drawable.ic_payments), null, Modifier.size(18.dp), tint = GOLD)
-                    Spacer(Modifier.width(10.dp))
-                    Text("Voir le reçu", Modifier.weight(1f), color = Color.White, fontWeight = FontWeight.SemiBold)
-                }
+                Spacer(Modifier.height(10.dp))
+                Text("À l'entrée, montre ta carte.", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "Voir le reçu",
+                    Modifier.clip(RoundedCornerShape(8.dp)).clickable { onReceipt(ticket) }.padding(vertical = 6.dp),
+                    color = MaterialTheme.colorScheme.primary,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 15.sp,
+                )
             }
             event.membersOnly && !memberActive -> {
                 Spacer(Modifier.height(10.dp))
-                Text("Renouvelle ton adhésion pour y participer.", color = NAVY, fontSize = 14.sp)
+                Text("Renouvelle ton adhésion pour y participer.", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
                 Spacer(Modifier.height(12.dp))
                 Text(
                     "Renouveler",
@@ -155,9 +153,9 @@ private fun Mine(
             !event.onlineSalesOpen -> {
                 Spacer(Modifier.height(10.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(painterResource(Res.drawable.ic_check), null, Modifier.size(16.dp), tint = ORANGE)
+                    Icon(painterResource(Res.drawable.ic_check), null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
                     Spacer(Modifier.width(8.dp))
-                    Text("Vente possible à l'accueil.", color = NAVY, fontSize = 14.sp)
+                    Text("Vente possible à l'accueil.", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
                 }
             }
         }
@@ -172,7 +170,7 @@ private fun Shortcut(
     onClick: () -> Unit,
 ) {
     Row(
-        modifier.clip(RoundedCornerShape(14.dp)).background(MaterialTheme.colorScheme.background).clickable(onClick = onClick).padding(vertical = 12.dp),
+        modifier.clip(RoundedCornerShape(14.dp)).background(MaterialTheme.colorScheme.surfaceVariant).clickable(onClick = onClick).padding(vertical = 12.dp),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -184,7 +182,7 @@ private fun Shortcut(
 
 @Composable
 private fun Label(text: String) {
-    Text(text, color = GOLD_DARK, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.5.sp)
+    Text(text, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
 }
 
 @Composable

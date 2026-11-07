@@ -45,7 +45,6 @@ import bighid.romatazok.adherentapp.ui.home.EmailChangeSheet
 import bighid.romatazok.adherentapp.ui.home.HomeScreen
 import bighid.romatazok.adherentapp.ui.home.HomeState
 import bighid.romatazok.adherentapp.ui.home.MemberStatus
-import bighid.romatazok.adherentapp.ui.home.ProfileSheet
 import bighid.romatazok.adherentapp.ui.home.Target
 import bighid.romatazok.adherentapp.ui.login.ChangePinSheet
 import bighid.romatazok.adherentapp.ui.login.DeviceRequestSheet
@@ -54,6 +53,8 @@ import bighid.romatazok.adherentapp.ui.login.LoginScreen
 import bighid.romatazok.adherentapp.ui.login.wrongPin
 import bighid.romatazok.adherentapp.ui.membership.MembershipScreen
 import bighid.romatazok.adherentapp.ui.membership.MembershipState
+import bighid.romatazok.adherentapp.ui.membership.MembershipTab
+import bighid.romatazok.adherentapp.ui.membership.ProfileActions
 import bighid.romatazok.adherentapp.ui.receipt.LocalReceipts
 import bighid.romatazok.adherentapp.ui.receipt.ReceiptPanel
 import bighid.romatazok.adherentapp.ui.theme.ParibabiTheme
@@ -81,7 +82,7 @@ fun App(serverUrl: String = "") {
         val data = remember { MemberRepository(api) }
         val scope = rememberCoroutineScope()
         var page by remember { mutableStateOf<Page>(Page.Home) }
-        var editing by remember { mutableStateOf(false) }
+        var membershipTab by remember { mutableStateOf(MembershipTab.SEASON) }
         // The payment whose receipt is open: the sheet opens at once and reads it.
         var receipt by remember { mutableStateOf<String?>(null) }
         var event by remember { mutableStateOf<UpcomingEvent?>(null) }
@@ -145,7 +146,8 @@ fun App(serverUrl: String = "") {
                 activity = rows
                 events = upcoming
                 loadFailed = false
-                membership = null
+                // Read again behind what is shown: the page never goes back to its wheel.
+                membershipTry++
                 deviceRequest = api.pendingRequests().firstOrNull()
             } catch (_: SessionExpiredException) {
                 signedOut(if (api.takenOver) TAKEN_OVER else "Ta session a pris fin. Reconnecte-toi.")
@@ -162,10 +164,12 @@ fun App(serverUrl: String = "") {
         LaunchedEffect(signedIn, pushToken) {
             pushToken?.let { token -> runCatching { api.registerPush(token) } }
         }
-        LaunchedEffect(page, membership, membershipTry) {
-            if (page == Page.Membership && membership == null) {
+        LaunchedEffect(page, membershipTry) {
+            if (page == Page.Membership) {
                 membershipFailed = false
-                membership = runCatching { data.membership() }.getOrNull()
+                val read = runCatching { data.membership() }.getOrNull()
+                if (read != null) membership = read
+                // Without network, what was read stays.
                 membershipFailed = membership == null
             }
         }
@@ -201,6 +205,7 @@ fun App(serverUrl: String = "") {
                     receipt = null
                     event = null
                     message = null
+                    membershipTab = MembershipTab.SEASON
                     page = Page.Membership
                 }
                 null -> return@LaunchedEffect
@@ -225,7 +230,10 @@ fun App(serverUrl: String = "") {
                     Page.Home ->
                         HomeScreen(
                             shown,
-                            onMembership = { page = Page.Membership },
+                            onMembership = {
+                                membershipTab = MembershipTab.SEASON
+                                page = Page.Membership
+                            },
                             // An event never takes a page from the home: it opens over it.
                             onEvent = { id -> event = events.firstOrNull { it.id == id } },
                             onAllEvents = { page = Page.Events },
@@ -238,7 +246,11 @@ fun App(serverUrl: String = "") {
                                 }
                             },
                             onAllActivity = { page = Page.Activity },
-                            onEditProfile = { editing = true },
+                            // The pencil of the card: straight to "Mon profil".
+                            onEditProfile = {
+                                membershipTab = MembershipTab.PROFILE
+                                page = Page.Membership
+                            },
                             refreshing = refreshing,
                             onRefresh = {
                                 refreshing = true
@@ -246,7 +258,45 @@ fun App(serverUrl: String = "") {
                             },
                         )
                     Page.Membership ->
-                        membership?.let { MembershipScreen(it, back) } ?: Loading(failed = membershipFailed, onRetry = { membershipTry++ })
+                        membership?.let { read ->
+                            MembershipScreen(
+                                read,
+                                shown,
+                                membershipTab,
+                                onTab = { membershipTab = it },
+                                onBack = back,
+                                onRenew = {},
+                                actions =
+                                    ProfileActions(
+                                        onSave = { profile ->
+                                            // The card changes once the server took it; until then the sheet stays open.
+                                            failure { api.updateProfile(profile.jobTitle, profile.company, profile.city, profile.sector) }.also { said ->
+                                                if (said == null) home = shown.copy(profile = profile, card = shown.card.with(profile))
+                                            }
+                                        },
+                                        onEmail = { newEmail = it },
+                                        onPhoto = { photo ->
+                                            failure { api.uploadPhoto(photo) }.also { said ->
+                                                if (said == null) {
+                                                    // Read again from the server, turned and cut as it will stay.
+                                                    data.forgetPhoto()
+                                                    resumed++
+                                                }
+                                            }
+                                        },
+                                        lockOnOpen = lockOnOpen,
+                                        onLockOnOpen = {
+                                            lockOnOpen = it
+                                            secure.put(LOCK_KEY, if (it) "1" else "0")
+                                        },
+                                        onChangePin = { changingPin = true },
+                                        onLogout = {
+                                            scope.launch { api.logout() }
+                                            signedOut(null)
+                                        },
+                                    ),
+                            )
+                        } ?: Loading(failed = membershipFailed, onRetry = { membershipTry++ })
                     Page.Events -> EventsScreen(events, back) { event = it }
                     Page.Activity ->
                         ActivityScreen(activity, back) { row ->
@@ -274,47 +324,6 @@ fun App(serverUrl: String = "") {
             receipt?.let {
                 ModalBottomSheet({ receipt = null }, containerColor = MaterialTheme.colorScheme.surface) { ReceiptPanel(it) }
             }
-        }
-        if (editing) {
-            ProfileSheet(
-                shown.profile,
-                onDismiss = { editing = false },
-                onSave = { profile, photo ->
-                    // The card changes once the server took it; until then the sheet stays open.
-                    failure {
-                        photo?.let { api.uploadPhoto(it) }
-                        api.updateProfile(profile.jobTitle, profile.company, profile.city, profile.sector)
-                    }.also { said ->
-                        if (said == null) {
-                            editing = false
-                            home = shown.copy(profile = profile.copy(email = shown.profile.email), card = shown.card.with(profile))
-                            // Read again from the server, turned and cut as it will stay.
-                            if (photo != null) {
-                                data.forgetPhoto()
-                                resumed++
-                            }
-                            // The email waits for the PIN, then for its code.
-                            val typed = profile.email?.trim().orEmpty()
-                            if (typed.isNotEmpty() && typed != shown.profile.email) newEmail = typed
-                        }
-                    }
-                },
-                lockOnOpen = lockOnOpen,
-                onLockOnOpen = {
-                    lockOnOpen = it
-                    secure.put(LOCK_KEY, if (it) "1" else "0")
-                },
-                onChangePin = {
-                    // A sheet in place of the other, never one over another.
-                    editing = false
-                    changingPin = true
-                },
-                onLogout = {
-                    editing = false
-                    scope.launch { api.logout() }
-                    signedOut(null)
-                },
-            )
         }
         newEmail?.let { email ->
             EmailChangeSheet(

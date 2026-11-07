@@ -190,17 +190,17 @@ private fun CardActions(
                 .weight(1f)
                 .height(52.dp)
                 .clip(RoundedCornerShape(16.dp))
-                .background(MaterialTheme.colorScheme.onBackground)
+                .background(MaterialTheme.colorScheme.primary)
                 .clickable(onClick = onQr),
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(painterResource(if (showBack) Res.drawable.ic_card else Res.drawable.ic_qr), null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.background)
+            Icon(painterResource(if (showBack) Res.drawable.ic_card else Res.drawable.ic_qr), null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onPrimary)
             Spacer(Modifier.width(10.dp))
-            Text(if (showBack) "Voir ma carte" else "Afficher mon QR", color = MaterialTheme.colorScheme.background, fontWeight = FontWeight.SemiBold)
+            Text(if (showBack) "Voir ma carte" else "Afficher mon QR", color = MaterialTheme.colorScheme.onPrimary, fontWeight = FontWeight.SemiBold)
         }
         Box(
-            Modifier.size(52.dp).clip(RoundedCornerShape(16.dp)).background(MaterialTheme.colorScheme.surface).clickable(onClick = onMask),
+            Modifier.size(52.dp).clip(RoundedCornerShape(16.dp)).background(MaterialTheme.colorScheme.surfaceVariant).clickable(onClick = onMask),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
@@ -211,7 +211,7 @@ private fun CardActions(
             )
         }
         Box(
-            Modifier.size(52.dp).clip(RoundedCornerShape(16.dp)).background(MaterialTheme.colorScheme.surface).clickable(onClick = onEdit),
+            Modifier.size(52.dp).clip(RoundedCornerShape(16.dp)).background(MaterialTheme.colorScheme.surfaceVariant).clickable(onClick = onEdit),
             contentAlignment = Alignment.Center,
         ) {
             Icon(painterResource(Res.drawable.ic_edit), "Compléter mon profil", Modifier.size(21.dp), tint = MaterialTheme.colorScheme.onSurface)
@@ -235,13 +235,13 @@ private fun MembershipLine(
     Row(
         modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .background(MaterialTheme.colorScheme.surface)
+            .clip(RoundedCornerShape(18.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant)
             .clickable(onClick = onClick)
             .padding(start = 16.dp, end = 10.dp, top = 12.dp, bottom = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(Modifier.size(9.dp).clip(CircleShape).background(dot))
+        Box(Modifier.size(8.dp).clip(CircleShape).background(dot))
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             Text(text, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
@@ -262,7 +262,7 @@ private fun SectionTitle(
     onAction: () -> Unit,
 ) {
     Row(Modifier.fillMaxWidth().padding(start = SIDE, end = SIDE - 4.dp, top = 28.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(title, Modifier.weight(1f), fontSize = 20.sp, fontWeight = FontWeight.Bold)
+        Text(title, Modifier.weight(1f), fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
         Text(action, Modifier.clip(RoundedCornerShape(8.dp)).clickable(onClick = onAction).padding(4.dp), color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
     }
 }
@@ -276,7 +276,6 @@ private fun EventLine(
     Row(
         Modifier
             .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surface)
             .clickable(onClick = onClick)
             .padding(horizontal = SIDE, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -319,7 +318,6 @@ internal fun ActivityLine(
         Modifier
             .fillMaxWidth()
             .height(ACTIVITY_HEIGHT)
-            .background(MaterialTheme.colorScheme.surface)
             .clickable(onClick = onClick)
             .padding(horizontal = SIDE),
         verticalAlignment = Alignment.CenterVertically,
@@ -360,7 +358,7 @@ internal fun KindIcon(
     icon: DrawableResource,
     tint: Color,
 ) {
-    Box(Modifier.size(38.dp).clip(CircleShape).background(tint.copy(alpha = 0.14f)), contentAlignment = Alignment.Center) {
+    Box(Modifier.size(38.dp).clip(CircleShape).background(tint.copy(alpha = 0.09f)), contentAlignment = Alignment.Center) {
         Icon(painterResource(icon), null, Modifier.size(19.dp), tint = tint)
     }
 }
